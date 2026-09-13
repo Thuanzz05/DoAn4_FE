@@ -16,12 +16,18 @@ import {
 } from '@phosphor-icons/react'
 import heroImage from './assets/language-center-hero.png'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login'
+type Page = 'home' | 'login' | 'register'
 
-const getCurrentPage = (): Page => window.location.pathname.replace(/\/+$/, '') === '/login' ? 'login' : 'home'
+const getCurrentPage = (): Page => {
+  const path = window.location.pathname.replace(/\/+$/, '')
+  if (path === '/login') return 'login'
+  if (path === '/register') return 'register'
+  return 'home'
+}
 
 const flow = [
   { label: 'Ghi danh', detail: 'Hồ sơ và lớp phù hợp', icon: IdentificationCard },
@@ -68,17 +74,27 @@ function App() {
   }, [])
 
   useEffect(() => {
-    document.title = page === 'login' ? 'Đăng nhập | Trung tâm' : 'Hệ thống quản lý trung tâm ngoại ngữ'
+    document.title = page === 'login'
+      ? 'Đăng nhập | Trung tâm'
+      : page === 'register'
+        ? 'Đăng ký học viên | Trung tâm'
+        : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
   const navigate = (nextPage: Page) => {
-    const nextPath = nextPage === 'login' ? '/login' : '/'
+    const nextPath = nextPage === 'login' ? '/login' : nextPage === 'register' ? '/register' : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
-  if (page === 'login') return <LoginPage onNavigateHome={() => navigate('home')} />
+  if (page === 'login') {
+    return <LoginPage onNavigateHome={() => navigate('home')} onNavigateRegister={() => navigate('register')} />
+  }
+
+  if (page === 'register') {
+    return <RegisterPage onNavigateHome={() => navigate('home')} onNavigateLogin={() => navigate('login')} />
+  }
 
   const openLogin = () => navigate('login')
 

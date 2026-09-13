@@ -13,9 +13,10 @@ import './LoginPage.css'
 
 type LoginPageProps = {
   onNavigateHome: () => void
+  onNavigateRegister: () => void
 }
 
-function LoginPage({ onNavigateHome }: LoginPageProps) {
+function LoginPage({ onNavigateHome, onNavigateRegister }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState('')
@@ -123,7 +124,10 @@ function LoginPage({ onNavigateHome }: LoginPageProps) {
               </p>
             )}
 
-            <p className="login-support">Bạn chưa có tài khoản? Liên hệ quản trị viên của trung tâm.</p>
+            <div className="login-support">
+              <span>Chưa có tài khoản học viên?</span>
+              <button type="button" onClick={onNavigateRegister}>Đăng ký ngay <ArrowRight aria-hidden="true" weight="bold" /></button>
+            </div>
           </div>
         </section>
       </main>

@@ -131,7 +131,9 @@
 
 .login-feedback { display: flex; align-items: flex-start; gap: 10px; margin: 18px 0 0; padding: 13px 14px; border: 1px solid rgba(184, 50, 36, 0.28); border-radius: 10px; color: var(--accent-dark); background: #fff3ef; font-size: 0.72rem; line-height: 1.55; }
 .login-feedback svg { width: 17px; height: 17px; flex: 0 0 auto; margin-top: 2px; }
-.login-support { margin: 28px 0 0; padding-top: 24px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 0.7rem; line-height: 1.6; }
+.login-support { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 28px 0 0; padding-top: 24px; border-top: 1px solid var(--line); color: var(--ink-soft); font-size: 0.7rem; line-height: 1.6; }
+.login-support button { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--ink); color: var(--ink); background: transparent; font-size: 0.72rem; font-weight: 750; cursor: pointer; }
+.login-support button svg { width: 15px; height: 15px; }
 
 @media (max-width: 980px) {
   .login-page-header, .login-page-main { width: min(100% - 40px, 760px); }
@@ -159,6 +161,7 @@
   .login-entry { margin-right: -14px; margin-left: -14px; padding: 38px 22px 48px; }
   .login-form-heading h2 { font-size: 2.7rem; }
   .login-options { align-items: flex-start; flex-direction: column; gap: 10px; }
+  .login-support { align-items: flex-start; flex-direction: column; gap: 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

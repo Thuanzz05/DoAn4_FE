@@ -13,6 +13,6 @@ STORY: Người xem nhận ra vấn đề dữ liệu rời rạc, thấy hệ t
 
 FIRST VIEWPORT: Header mảnh ở trên; cột trái chứa tiêu đề serif hai dòng, mô tả và nút Đăng nhập; cột phải là ảnh bối cảnh trung tâm cùng chú thích ba miền dữ liệu. Hero vừa đủ trong một màn hình desktop.
 
-FORM: Trang `/login` dùng bố cục chia đôi trên desktop và đưa biểu mẫu lên trước trên màn hình hẹp. Form có hiện mật khẩu, ghi nhớ đăng nhập, trạng thái gửi và thông báo trung thực khi backend chưa kết nối.
+FORM: Hai route `/login` và `/register` dùng bố cục chia đôi trên desktop, đưa biểu mẫu lên trước trên màn hình hẹp và liên kết hai chiều. Form có trạng thái gửi, kiểm tra mật khẩu và thông báo trung thực khi backend chưa kết nối.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance

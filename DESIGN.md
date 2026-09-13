@@ -165,6 +165,10 @@ Phần lớn bề mặt phẳng và được phân tách bằng sắc độ cùn
 
 Route `/login` dùng bố cục chia đôi trên desktop: câu chuyện phân quyền và ảnh trung tâm ở bên trái, biểu mẫu tập trung ở bên phải. Trên tablet và mobile, biểu mẫu được đưa lên trước để hành động chính luôn xuất hiện sớm. Trường mật khẩu có điều khiển hiện hoặc ẩn, trạng thái gửi và phản hồi khi API chưa được kết nối.
 
+### Trang đăng ký
+
+Route `/register` dành riêng cho học viên tự tạo hồ sơ. Form thu thập họ tên, email, số điện thoại và mật khẩu; kiểm tra mật khẩu xác nhận ngay tại giao diện. Giáo viên và quản trị viên tiếp tục nhận tài khoản từ trung tâm. Trang đăng nhập và đăng ký liên kết hai chiều để người dùng không bị ngắt luồng.
+
 ### Hero hình ảnh
 
 Ảnh editorial chân thực về không gian trung tâm là điểm nhìn chính. Chú thích bên dưới kết nối ba miền Học vụ, Tài chính và Kết quả học tập, làm rõ thông điệp “cùng một nguồn dữ liệu” mà không mô phỏng màn hình nội bộ.
