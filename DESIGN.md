@@ -169,6 +169,12 @@ Route `/login` dùng bố cục chia đôi trên desktop: câu chuyện phân qu
 
 Route `/register` dành riêng cho học viên tự tạo hồ sơ. Form thu thập họ tên, email, số điện thoại và mật khẩu; kiểm tra mật khẩu xác nhận ngay tại giao diện. Giáo viên và quản trị viên tiếp tục nhận tài khoản từ trung tâm. Trang đăng nhập và đăng ký liên kết hai chiều để người dùng không bị ngắt luồng.
 
+### Dashboard quản trị viên
+
+Route `/admin` chuyển ngôn ngữ thương hiệu sang một không gian làm việc dày thông tin hơn: sidebar mực xanh đen, topbar cố định và các panel phẳng được phân cấp bằng đường kẻ. Màn hình tổng quan ưu tiên chỉ số học viên, lớp học, lịch trong ngày, tình trạng học phí và cảnh báo nghiệp vụ. Dữ liệu hiện tại luôn được ghi rõ là minh họa cho đến khi kết nối API và phân quyền từ backend.
+
+Ở dưới 820px, sidebar trở thành menu trượt có backdrop; lưới chỉ số chuyển thành hai cột, các panel xếp thành một cột và bảng học phí có thể cuộn ngang. Thông báo được mở tại chỗ để người quản trị không rời ngữ cảnh.
+
 ### Hero hình ảnh
 
 Ảnh editorial chân thực về không gian trung tâm là điểm nhìn chính. Chú thích bên dưới kết nối ba miền Học vụ, Tài chính và Kết quả học tập, làm rõ thông điệp “cùng một nguồn dữ liệu” mà không mô phỏng màn hình nội bộ.

@@ -15,17 +15,19 @@ import {
   UsersThree,
 } from '@phosphor-icons/react'
 import heroImage from './assets/language-center-hero.png'
+import AdminDashboard from './pages/AdminDashboard'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register'
+type Page = 'home' | 'login' | 'register' | 'admin'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
   if (path === '/login') return 'login'
   if (path === '/register') return 'register'
+  if (path === '/admin') return 'admin'
   return 'home'
 }
 
@@ -78,11 +80,19 @@ function App() {
       ? 'Đăng nhập | Trung tâm'
       : page === 'register'
         ? 'Đăng ký học viên | Trung tâm'
-        : 'Hệ thống quản lý trung tâm ngoại ngữ'
+        : page === 'admin'
+          ? 'Tổng quan quản trị | Trung tâm'
+          : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
   const navigate = (nextPage: Page) => {
-    const nextPath = nextPage === 'login' ? '/login' : nextPage === 'register' ? '/register' : '/'
+    const nextPath = nextPage === 'login'
+      ? '/login'
+      : nextPage === 'register'
+        ? '/register'
+        : nextPage === 'admin'
+          ? '/admin'
+          : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
     window.scrollTo({ top: 0, behavior: 'auto' })
@@ -94,6 +104,10 @@ function App() {
 
   if (page === 'register') {
     return <RegisterPage onNavigateHome={() => navigate('home')} onNavigateLogin={() => navigate('login')} />
+  }
+
+  if (page === 'admin') {
+    return <AdminDashboard onLogout={() => navigate('login')} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')
