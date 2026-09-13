@@ -16,18 +16,20 @@ import {
 } from '@phosphor-icons/react'
 import heroImage from './assets/language-center-hero.png'
 import AdminDashboard from './pages/AdminDashboard'
+import AdminStudents from './pages/AdminStudents'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin'
+type Page = 'home' | 'login' | 'register' | 'admin' | 'students'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
   if (path === '/login') return 'login'
   if (path === '/register') return 'register'
   if (path === '/admin') return 'admin'
+  if (path === '/admin/students') return 'students'
   return 'home'
 }
 
@@ -82,6 +84,8 @@ function App() {
         ? 'Đăng ký học viên | Trung tâm'
         : page === 'admin'
           ? 'Tổng quan quản trị | Trung tâm'
+          : page === 'students'
+            ? 'Quản lý học viên | Trung tâm'
           : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
@@ -92,6 +96,8 @@ function App() {
         ? '/register'
         : nextPage === 'admin'
           ? '/admin'
+          : nextPage === 'students'
+            ? '/admin/students'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
@@ -107,7 +113,11 @@ function App() {
   }
 
   if (page === 'admin') {
-    return <AdminDashboard onLogout={() => navigate('login')} onNavigateHome={() => navigate('home')} />
+    return <AdminDashboard onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'students') {
+    return <AdminStudents onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')

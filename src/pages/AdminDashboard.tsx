@@ -1,25 +1,19 @@
-import { useState } from 'react'
 import {
-  Bell,
   CalendarBlank,
   CaretRight,
-  Certificate,
   ChalkboardTeacher,
   CheckCircle,
   Clock,
-  House,
-  List,
   Receipt,
-  SignOut,
   Student,
-  UsersThree,
   WarningCircle,
-  X,
 } from '@phosphor-icons/react'
+import AdminLayout from './AdminLayout'
 import './AdminDashboard.css'
 
 type AdminDashboardProps = {
   onLogout: () => void
+  onNavigate: (page: 'admin' | 'students') => void
   onNavigateHome: () => void
 }
 
@@ -50,99 +44,15 @@ const alerts = [
   { title: 'Ba học viên chưa đủ điều kiện thi', detail: 'Chuyên cần hoặc học phí chưa đạt yêu cầu.', icon: WarningCircle },
 ] as const
 
-function AdminDashboard({ onLogout, onNavigateHome }: AdminDashboardProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
-
-  const today = new Intl.DateTimeFormat('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date())
-
-  const closeSidebar = () => setSidebarOpen(false)
-
+function AdminDashboard({ onLogout, onNavigate, onNavigateHome }: AdminDashboardProps) {
   return (
-    <div className="admin-shell">
-      <aside className={`admin-sidebar${sidebarOpen ? ' is-open' : ''}`} aria-label="Điều hướng quản trị">
-        <div className="admin-sidebar-head">
-          <button className="admin-wordmark" type="button" onClick={onNavigateHome} aria-label="Về trang chủ">
-            <span>Trung tâm</span>
-            <small>Không gian quản trị</small>
-          </button>
-          <button className="sidebar-close" type="button" onClick={closeSidebar} aria-label="Đóng điều hướng" title="Đóng">
-            <X aria-hidden="true" weight="bold" />
-          </button>
-        </div>
-
-        <nav className="admin-nav" aria-label="Chức năng quản trị">
-          <a className="is-active" href="#dashboard-top" onClick={closeSidebar}><House aria-hidden="true" weight="fill" />Tổng quan</a>
-          <a href="#today-schedule" onClick={closeSidebar}><CalendarBlank aria-hidden="true" />Lịch hôm nay</a>
-          <a href="#payment-status" onClick={closeSidebar}><Receipt aria-hidden="true" />Học phí</a>
-          <a href="#operations-alerts" onClick={closeSidebar}><WarningCircle aria-hidden="true" />Cảnh báo</a>
-        </nav>
-
-        <div className="admin-module-list" aria-label="Phân hệ sẽ triển khai">
-          <p>Phân hệ</p>
-          <span><Student aria-hidden="true" />Học viên</span>
-          <span><UsersThree aria-hidden="true" />Lớp học</span>
-          <span><ChalkboardTeacher aria-hidden="true" />Giáo viên</span>
-          <span><Certificate aria-hidden="true" />Thi và chứng chỉ</span>
-        </div>
-
-        <div className="admin-account">
-          <span className="admin-avatar" aria-hidden="true">QT</span>
-          <div><strong>Quản trị viên</strong><small>Giáo vụ trung tâm</small></div>
-          <button type="button" onClick={onLogout} aria-label="Đăng xuất" title="Đăng xuất"><SignOut aria-hidden="true" /></button>
-        </div>
-      </aside>
-
-      {sidebarOpen && <button className="sidebar-backdrop" type="button" onClick={closeSidebar} aria-label="Đóng điều hướng" />}
-
-      <div className="admin-workspace">
-        <header className="admin-topbar">
-          <button className="sidebar-toggle" type="button" onClick={() => setSidebarOpen(true)} aria-label="Mở điều hướng" title="Mở điều hướng">
-            <List aria-hidden="true" weight="bold" />
-          </button>
-          <div className="admin-topbar-title">
-            <span>Dữ liệu minh họa</span>
-            <time dateTime={new Date().toISOString()}>{today}</time>
-          </div>
-          <div className="admin-topbar-actions">
-            <button
-              className="notification-button"
-              type="button"
-              onClick={() => setNotificationsOpen((current) => !current)}
-              aria-expanded={notificationsOpen}
-              aria-controls="notification-panel"
-              aria-label="Xem thông báo"
-              title="Thông báo"
-            >
-              <Bell aria-hidden="true" />
-              <span>3</span>
-            </button>
-            <span className="topbar-role">Quản trị viên</span>
-          </div>
-
-          {notificationsOpen && (
-            <div className="notification-panel" id="notification-panel">
-              <div><strong>Thông báo nghiệp vụ</strong><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Đóng thông báo"><X aria-hidden="true" /></button></div>
-              {alerts.map((alert) => {
-                const Icon = alert.icon
-                return <p key={alert.title}><Icon aria-hidden="true" /><span><strong>{alert.title}</strong><small>{alert.detail}</small></span></p>
-              })}
-            </div>
-          )}
-        </header>
-
-        <main className="admin-main" id="dashboard-top">
+    <AdminLayout activePage="admin" mainId="dashboard-top" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
           <section className="dashboard-heading" aria-labelledby="dashboard-title">
             <div>
               <h1 id="dashboard-title">Tổng quan vận hành</h1>
               <p>Theo dõi các thông tin cần xử lý trong ngày tại một nơi.</p>
             </div>
-            <button type="button" onClick={() => setNotificationsOpen(true)}>Xem việc cần xử lý <CaretRight aria-hidden="true" weight="bold" /></button>
+            <a href="#operations-alerts">Xem việc cần xử lý <CaretRight aria-hidden="true" weight="bold" /></a>
           </section>
 
           <section className="overview-metrics" aria-label="Chỉ số tổng quan minh họa">
@@ -214,9 +124,7 @@ function AdminDashboard({ onLogout, onNavigateHome }: AdminDashboardProps) {
               </div>
             </section>
           </div>
-        </main>
-      </div>
-    </div>
+    </AdminLayout>
   )
 }
 

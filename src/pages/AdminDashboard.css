@@ -1,5 +1,6 @@
 .admin-shell {
   min-height: 100dvh;
+  overflow-x: clip;
   color: #12332f;
   background: #eef3ed;
   --admin-ink: #12332f;
@@ -32,10 +33,13 @@
 .sidebar-close { display: none; width: 38px; height: 38px; place-items: center; border: 1px solid rgba(255,255,255,0.18); border-radius: 9px; color: #eff6f1; background: transparent; cursor: pointer; }
 .sidebar-close svg { width: 18px; height: 18px; }
 
-.admin-nav { display: grid; gap:6px; margin-top: 48px; }
-.admin-nav a { display:flex; min-height: 46px; align-items:center; gap: 13px; padding: 0 14px; border-radius: 10px; color: #bdd0c9; font-size: 0.8rem; font-weight: 700; text-decoration: none; transition: color 170ms ease, background 170ms ease, transform 170ms ease; }
-.admin-nav a:hover { color: #eff6f1; background: rgba(255,255,255,0.07); transform: translateX(2px); }
-.admin-nav a.is-active { color: var(--admin-sidebar); background: #dce8dc; }
+.admin-nav { display: grid; gap: 5px; margin-top: 40px; }
+.admin-nav button, .admin-nav > span { display:flex; min-height: 44px; align-items:center; gap: 13px; padding: 0 14px; border: 0; border-radius: 10px; color: #bdd0c9; background: transparent; font-family: inherit; font-size: 0.76rem; font-weight: 700; text-align: left; transition: color 170ms ease, background 170ms ease, transform 170ms ease; }
+.admin-nav button { cursor: pointer; }
+.admin-nav button:hover { color: #eff6f1; background: rgba(255,255,255,0.07); transform: translateX(2px); }
+.admin-nav button.is-active { color: var(--admin-sidebar); background: #dce8dc; }
+.admin-nav > span.is-disabled { color: #78968c; }
+.admin-nav > span small { margin-left: auto; color: #78968c; font-size: 0.52rem; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; }
 .admin-nav svg { width: 20px; height: 20px; flex: 0 0 auto; }
 
 .admin-module-list { display: grid; gap: 4px; margin-top: 38px; padding: 24px 8px 0; border-top: 1px solid rgba(255,255,255,0.13); }
@@ -81,9 +85,9 @@
 .dashboard-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 32px; }
 .dashboard-heading h1 { margin: 0; font-family: var(--display); font-size: clamp(2.7rem, 4vw, 4.2rem); font-weight: 600; line-height: 0.98; letter-spacing: -0.035em; }
 .dashboard-heading p { margin: 12px 0 0; color: var(--admin-muted); font-size: 0.82rem; line-height: 1.6; }
-.dashboard-heading > button { display: inline-flex; min-height: 44px; align-items: center; gap: 10px; padding: 0 16px; border: 1px solid var(--admin-line); border-radius: 10px; color: var(--admin-ink); background: var(--admin-panel); font-size: 0.72rem; font-weight: 750; cursor: pointer; }
-.dashboard-heading > button:hover { border-color: var(--admin-ink); }
-.dashboard-heading > button svg { width: 16px; height: 16px; }
+.dashboard-heading > a { display: inline-flex; min-height: 44px; align-items: center; gap: 10px; padding: 0 16px; border: 1px solid var(--admin-line); border-radius: 10px; color: var(--admin-ink); background: var(--admin-panel); font-size: 0.72rem; font-weight: 750; text-decoration: none; }
+.dashboard-heading > a:hover { border-color: var(--admin-ink); }
+.dashboard-heading > a svg { width: 16px; height: 16px; }
 
 .overview-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 38px; }
 .metric-card { min-width: 0; padding: 22px; border: 1px solid var(--admin-line); border-radius: 14px; background: var(--admin-panel); }
