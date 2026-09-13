@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-12T16:45:00+07:00",
+  "title": "Design System: Hệ thống quản lý trung tâm ngoại ngữ",
+  "extensions": {
+    "colorMeta": {
+      "ink": { "role": "primary", "displayName": "Mực điều phối", "canonical": "#092c28", "tonalRamp": ["#031714", "#092c28", "#1c4942", "#3e6a60", "#6b9084", "#9fbab0", "#d1dfda", "#f1f6f3"] },
+      "action-coral": { "role": "primary", "displayName": "San hô hành động", "canonical": "#e9553f", "tonalRamp": ["#3d0d08", "#6b1810", "#9f2d20", "#c94131", "#e9553f", "#f38b7b", "#fac0b7", "#fff0ed"] },
+      "paper": { "role": "neutral", "displayName": "Giấy vận hành", "canonical": "#f2f6f0", "tonalRamp": ["#16201a", "#334039", "#536159", "#75847b", "#99a79f", "#bdc9c2", "#dfe7e1", "#f2f6f0"] },
+      "sage": { "role": "neutral", "displayName": "Sage trạng thái", "canonical": "#d7e4d8", "tonalRamp": ["#18251a", "#344637", "#526756", "#718875", "#91aa95", "#b3cbb6", "#d7e4d8", "#f0f6f1"] },
+      "line": { "role": "neutral", "displayName": "Đường hồ sơ", "canonical": "#c7d4cc", "tonalRamp": ["#17201b", "#35413a", "#546159", "#748178", "#94a299", "#b5c3ba", "#d6e0da", "#f0f4f1"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Tiêu đề học thuật", "purpose": "Thông điệp hero và tiêu đề section." },
+      "body": { "displayName": "Nội dung vận hành", "purpose": "Nội dung, biểu mẫu và dữ liệu." },
+      "label": { "displayName": "Nhãn trạng thái", "purpose": "Điều hướng, trạng thái và chú thích ngắn." }
+    },
+    "shadows": [
+      { "name": "ambient-panel", "value": "0 24px 70px rgba(9, 44, 40, 0.11)", "purpose": "Nâng ảnh hero và dialog khỏi nền giấy." },
+      { "name": "action-lift", "value": "0 10px 24px rgba(9, 44, 40, 0.16)", "purpose": "Tạo phản hồi nhẹ cho nút chính." }
+    ],
+    "motion": [
+      { "name": "hero-visual-reveal", "value": "760ms cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Đưa hình ảnh bối cảnh vào trang theo nhịp đọc." },
+      { "name": "control-response", "value": "180ms ease", "purpose": "Hover và phản hồi điều khiển." }
+    ],
+    "breakpoints": [
+      { "name": "compact-desktop", "value": "1180px" },
+      { "name": "tablet", "value": "900px" },
+      { "name": "mobile", "value": "600px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Hành động chính trên nền giấy.",
+      "html": "<button class=\"ds-btn-primary\">Đăng nhập <svg aria-hidden=\"true\" width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M5 12h14M13 6l6 6-6 6\"/></svg></button>",
+      "css": ".ds-btn-primary { min-height:54px; display:inline-flex; align-items:center; gap:12px; padding:0 24px; border:1px solid #092c28; border-radius:10px; color:#fbfdf9; background:#092c28; box-shadow:0 10px 24px rgba(9,44,40,.16); font:700 .95rem Manrope,sans-serif; transition:transform 180ms ease,box-shadow 180ms ease; } .ds-btn-primary:hover { transform:translateY(-2px); box-shadow:0 14px 28px rgba(9,44,40,.22); } .ds-btn-primary:focus-visible { outline:3px solid rgba(233,85,63,.55); outline-offset:4px; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Hành động đăng nhập gọn trong header.",
+      "html": "<button class=\"ds-btn-outline\">Đăng nhập</button>",
+      "css": ".ds-btn-outline { min-height:46px; padding:0 24px; border:1px solid #092c28; border-radius:10px; color:#092c28; background:transparent; font:700 .9rem Manrope,sans-serif; transition:color 180ms ease,background 180ms ease,transform 180ms ease; } .ds-btn-outline:hover { color:#fbfdf9; background:#092c28; transform:translateY(-2px); } .ds-btn-outline:focus-visible { outline:3px solid rgba(233,85,63,.55); outline-offset:4px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Trường đăng nhập trên nền giấy phân lớp.",
+      "html": "<label class=\"ds-field-label\">Tên đăng nhập<input class=\"ds-field\" placeholder=\"Nhập tên đăng nhập\"></label>",
+      "css": ".ds-field-label { display:grid; gap:8px; color:#092c28; font:700 .72rem Manrope,sans-serif; } .ds-field { min-height:48px; padding:0 14px; border:1px solid #c7d4cc; border-radius:10px; color:#092c28; background:#f2f6f0; font:500 .86rem Manrope,sans-serif; } .ds-field:focus { outline:none; border-color:#092c28; box-shadow:0 0 0 3px rgba(9,44,40,.1); }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "description": "Nhãn ngắn cho trạng thái đang học hoặc đã chặn.",
+      "html": "<span class=\"ds-chip\">Đang học</span>",
+      "css": ".ds-chip { display:inline-flex; padding:5px 8px; border:1px solid #c7d4cc; border-radius:999px; color:#092c28; background:#d7e4d8; font:700 .7rem Manrope,sans-serif; }"
+    },
+    {
+      "name": "Hero Visual",
+      "kind": "custom",
+      "description": "Ảnh bối cảnh trung tâm đi cùng chú thích ba miền dữ liệu.",
+      "html": "<figure class=\"ds-hero-visual\"><img src=\"language-center-hero.png\" alt=\"Không gian trung tâm ngoại ngữ\"><figcaption>Học vụ · Tài chính · Kết quả học tập</figcaption></figure>",
+      "css": ".ds-hero-visual { padding:12px; border-radius:18px; background:#fbfdf9; box-shadow:0 24px 70px rgba(9,44,40,.11); } .ds-hero-visual img { display:block; width:100%; aspect-ratio:4/3; object-fit:cover; border-radius:12px; } .ds-hero-visual figcaption { padding:18px 14px 6px; color:#385a53; font:700 .7rem Manrope,sans-serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Một nguồn dữ liệu",
+    "overview": "Giao diện kể câu chuyện về một trung tâm được kết nối: con người thật ở tuyến đầu, dữ liệu rõ ràng ở phía sau và mọi vai trò cùng làm việc trên một nguồn thông tin thống nhất. Nền giấy sáng, đường kẻ chính xác và các trạng thái có ý nghĩa giữ cho nội dung đáng tin mà không biến trang chủ thành dashboard.",
+    "keyCharacteristics": ["Nền giấy ngà xanh với chữ mực xanh đen.", "Lưới, đường phân cách và nhãn trạng thái tạo cấu trúc.", "Bố cục bất đối xứng, nội dung nghiệp vụ là điểm nhìn chính.", "Chuyển động ngắn chỉ hỗ trợ việc đọc trạng thái."],
+    "rules": [
+      { "name": "The Rare Coral Rule", "body": "San hô chỉ đánh dấu hành động chính hoặc ngoại lệ nghiệp vụ; không phủ đều khắp giao diện.", "section": "colors" },
+      { "name": "The Two Voices Rule", "body": "Newsreader chỉ dẫn câu chuyện; Manrope điều khiển và báo cáo trạng thái.", "section": "typography" },
+      { "name": "The Paper First Rule", "body": "Dùng đường kẻ hoặc đổi sắc độ trước; chỉ dùng shadow khi bề mặt thực sự nằm trên một lớp khác.", "section": "elevation" }
+    ],
+    "dos": ["Do dùng đường kẻ và khoảng trắng để biểu đạt cấu trúc nghiệp vụ.", "Do giữ màu san hô cho hành động quan trọng hoặc ngoại lệ thật sự.", "Do ghi rõ dữ liệu minh họa khi chưa có bằng chứng vận hành thực tế.", "Do duy trì focus rõ và hỗ trợ prefers-reduced-motion."],
+    "donts": ["Don't biến trang thành dãy thẻ tính năng cùng kích thước.", "Don't dùng gradient, glass hoặc bóng màu chỉ để trang trí.", "Don't dùng dashboard hoặc lịch học làm hình ảnh chính của trang giới thiệu công khai.", "Don't dùng màu san hô cho trạng thái thông thường."]
+  }
+}
