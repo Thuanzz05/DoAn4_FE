@@ -146,7 +146,7 @@ Phần lớn bề mặt phẳng và được phân tách bằng sắc độ cùn
 
 ### Cards / Containers
 
-- **Corner Style:** panel bo 14 đến 16px; ô lịch bo 9px.
+- **Corner Style:** panel bo 14 đến 16px; điều khiển bo 8 đến 10px.
 - **Background:** giấy sáng, sage hoặc mực tối tùy cấp độ.
 - **Shadow Strategy:** chỉ panel nổi mới có ambient shadow.
 - **Border:** đường mảnh màu Đường hồ sơ.
@@ -160,6 +160,10 @@ Phần lớn bề mặt phẳng và được phân tách bằng sắc độ cùn
 ### Navigation
 
 Điều hướng dùng nhãn Manrope đậm, underline mảnh chạy vào khi hover hoặc focus. Mobile giữ wordmark và nút đăng nhập, ẩn các liên kết phụ.
+
+### Trang đăng nhập
+
+Route `/login` dùng bố cục chia đôi trên desktop: câu chuyện phân quyền và ảnh trung tâm ở bên trái, biểu mẫu tập trung ở bên phải. Trên tablet và mobile, biểu mẫu được đưa lên trước để hành động chính luôn xuất hiện sớm. Trường mật khẩu có điều khiển hiện hoặc ẩn, trạng thái gửi và phản hồi khi API chưa được kết nối.
 
 ### Hero hình ảnh
 

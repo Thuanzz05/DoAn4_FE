@@ -1,4 +1,4 @@
-import { FormEvent, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ArrowRight,
   CalendarBlank,
@@ -12,14 +12,16 @@ import {
   LockKey,
   Receipt,
   ShieldCheck,
-  UserCircle,
   UsersThree,
-  X,
 } from '@phosphor-icons/react'
 import heroImage from './assets/language-center-hero.png'
+import LoginPage from './pages/LoginPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
+type Page = 'home' | 'login'
+
+const getCurrentPage = (): Page => window.location.pathname.replace(/\/+$/, '') === '/login' ? 'login' : 'home'
 
 const flow = [
   { label: 'Ghi danh', detail: 'Hồ sơ và lớp phù hợp', icon: IdentificationCard },
@@ -56,21 +58,29 @@ const roleContent: Record<Role, { label: string; title: string; description: str
 
 function App() {
   const [activeRole, setActiveRole] = useState<Role>('admin')
-  const [loginStatus, setLoginStatus] = useState('')
-  const loginDialog = useRef<HTMLDialogElement>(null)
+  const [page, setPage] = useState<Page>(getCurrentPage)
   const role = roleContent[activeRole]
 
-  const openLogin = () => {
-    setLoginStatus('')
-    loginDialog.current?.showModal()
+  useEffect(() => {
+    const syncPage = () => setPage(getCurrentPage())
+    window.addEventListener('popstate', syncPage)
+    return () => window.removeEventListener('popstate', syncPage)
+  }, [])
+
+  useEffect(() => {
+    document.title = page === 'login' ? 'Đăng nhập | Trung tâm' : 'Hệ thống quản lý trung tâm ngoại ngữ'
+  }, [page])
+
+  const navigate = (nextPage: Page) => {
+    const nextPath = nextPage === 'login' ? '/login' : '/'
+    if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
+    setPage(nextPage)
+    window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
-  const closeLogin = () => loginDialog.current?.close()
+  if (page === 'login') return <LoginPage onNavigateHome={() => navigate('home')} />
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setLoginStatus('Chức năng xác thực sẽ được kết nối với máy chủ ở bước tiếp theo.')
-  }
+  const openLogin = () => navigate('login')
 
   return (
     <div className="site-shell">
@@ -191,20 +201,6 @@ function App() {
         <button type="button" onClick={openLogin}>Đăng nhập</button>
       </footer>
 
-      <dialog className="login-dialog" ref={loginDialog} onClose={() => setLoginStatus('')}>
-        <button className="dialog-close" type="button" onClick={closeLogin} aria-label="Đóng cửa sổ đăng nhập" title="Đóng"><X aria-hidden="true" weight="bold" /></button>
-        <div className="login-icon"><UserCircle aria-hidden="true" weight="duotone" /></div>
-        <h2>Đăng nhập hệ thống</h2>
-        <p>Sử dụng tài khoản được trung tâm cấp cho vai trò của bạn.</p>
-        <form onSubmit={handleLogin}>
-          <label htmlFor="username">Tên đăng nhập</label>
-          <input id="username" name="username" autoComplete="username" required placeholder="Nhập tên đăng nhập" />
-          <label htmlFor="password">Mật khẩu</label>
-          <input id="password" name="password" type="password" autoComplete="current-password" required placeholder="Nhập mật khẩu" />
-          <button className="primary-action dialog-submit" type="submit">Đăng nhập <ArrowRight aria-hidden="true" weight="bold" /></button>
-        </form>
-        {loginStatus && <p className="login-status" role="status">{loginStatus}</p>}
-      </dialog>
     </div>
   )
 }

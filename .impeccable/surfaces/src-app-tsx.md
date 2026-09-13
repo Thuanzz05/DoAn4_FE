@@ -5,14 +5,14 @@ primary_target: "src/App.tsx"
 related_targets: ["src/App.css","src/index.css"]
 ---
 
-THESIS: Một trung tâm, một luồng vận hành. Trang chủ biến lịch tuần thành bằng chứng trực quan rằng học vụ, tài chính và kết quả học tập cùng chạy trong một hệ thống; từ chối bố cục SaaS chung chung với hero minh họa vô nghĩa và dãy thẻ tính năng đồng đều.
+THESIS: Một trung tâm, một nguồn dữ liệu. Trang chủ giới thiệu hệ thống bằng bối cảnh trung tâm thật và một luồng nghiệp vụ rõ ràng, không dùng dashboard nội bộ làm hình ảnh tiếp thị.
 
-OWN-WORLD: Nền giấy ngà pha xanh rất nhạt, chữ mực xanh đen, ô lịch xanh sage và một màu san hô chỉ dành cho hành động chính hoặc lỗi bị chặn. Component có đường kẻ mảnh như biểu mẫu giáo vụ, góc bo vừa phải, số thứ tự và nhãn trạng thái rõ ràng.
+OWN-WORLD: Nền giấy ngà pha xanh rất nhạt, chữ mực xanh đen, bề mặt xanh sage và một màu san hô dành cho hành động chính hoặc cảnh báo. Component có đường kẻ mảnh, góc bo vừa phải và thứ bậc nội dung rõ ràng.
 
 STORY: Người xem nhận ra vấn đề dữ liệu rời rạc, thấy hệ thống hợp nhất lịch học, học phí, điểm danh, điểm số và chứng chỉ, hiểu cách ba vai trò dùng chung một nguồn dữ liệu, rồi chọn đăng nhập để vào không gian làm việc.
 
-FIRST VIEWPORT: Header mảnh ở trên; cột trái khoảng 35% chứa tiêu đề serif lớn ba dòng, mô tả và nút Đăng nhập; cột phải khoảng 65% là lịch vận hành tuần chiếm ưu thế, có một xung đột màu san hô đã bị chặn. Hero vừa đủ trong một màn hình desktop.
+FIRST VIEWPORT: Header mảnh ở trên; cột trái chứa tiêu đề serif hai dòng, mô tả và nút Đăng nhập; cột phải là ảnh bối cảnh trung tâm cùng chú thích ba miền dữ liệu. Hero vừa đủ trong một màn hình desktop.
 
-FORM: Lịch học dạng modular grid, vị trí số 7 trong danh sách hình thức đã xếp hạng; seed key 3f652fa3. Các section sau tiếp tục dùng nhịp lưới lịch và đường luồng để giải thích quy trình, không sao chép một dashboard hoàn chỉnh.
+FORM: Trang `/login` dùng bố cục chia đôi trên desktop và đưa biểu mẫu lên trước trên màn hình hẹp. Form có hiện mật khẩu, ghi nhớ đăng nhập, trạng thái gửi và thông báo trung thực khi backend chưa kết nối.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
