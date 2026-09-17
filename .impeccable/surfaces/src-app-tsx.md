@@ -13,6 +13,6 @@ STORY: Người xem nhận ra vấn đề dữ liệu rời rạc, thấy hệ t
 
 FIRST VIEWPORT: Header mảnh ở trên; cột trái chứa tiêu đề serif hai dòng, mô tả và nút Đăng nhập; cột phải là ảnh bối cảnh trung tâm cùng chú thích ba miền dữ liệu. Hero vừa đủ trong một màn hình desktop.
 
-FORM: Hai route `/login` và `/register` dùng bố cục chia đôi trên desktop, đưa biểu mẫu lên trước trên màn hình hẹp và liên kết hai chiều. Route `/admin` là dashboard quản trị responsive; `/admin/students` bổ sung tìm kiếm, lọc, bảng hồ sơ và panel chi tiết. Toàn bộ số liệu nội bộ hiện tại được ghi rõ là minh họa. Form có trạng thái gửi, kiểm tra mật khẩu và thông báo trung thực khi backend chưa kết nối.
+FORM: Hai route `/login` và `/register` dùng bố cục chia đôi trên desktop, đưa biểu mẫu lên trước trên màn hình hẹp và liên kết hai chiều. Route `/admin` là dashboard quản trị responsive; `/admin/students` và `/admin/classes` dùng chung mẫu tìm kiếm, lọc, bảng dữ liệu và panel chi tiết. Toàn bộ số liệu nội bộ hiện tại được ghi rõ là minh họa. Form có trạng thái gửi, kiểm tra mật khẩu và thông báo trung thực khi backend chưa kết nối.
 
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance

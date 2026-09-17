@@ -13,7 +13,7 @@ import './AdminDashboard.css'
 
 type AdminDashboardProps = {
   onLogout: () => void
-  onNavigate: (page: 'admin' | 'students') => void
+  onNavigate: (page: 'admin' | 'students' | 'classes') => void
   onNavigateHome: () => void
 }
 

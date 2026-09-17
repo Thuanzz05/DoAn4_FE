@@ -179,6 +179,10 @@ Route `/admin` chuyển ngôn ngữ thương hiệu sang một không gian làm 
 
 Route `/admin/students` dùng lại khung quản trị và đặt việc tra cứu lên trước. Ba chỉ số tóm tắt dẫn vào bảng hồ sơ có tìm kiếm theo tên, mã hoặc lớp và lọc theo trạng thái. Mỗi hàng mở panel chi tiết ở cạnh phải để xem thông tin liên hệ, lớp hiện tại, chuyên cần và học phí mà không mất vị trí trong danh sách. Bảng cuộn ngang trong chính panel trên màn hình hẹp, không làm tràn toàn trang.
 
+### Quản lý lớp học
+
+Route `/admin/classes` tiếp tục cùng mẫu tương tác với chỉ số sĩ số, phòng học, tìm kiếm, lọc trạng thái và panel chi tiết. Nội dung tập trung vào giáo viên, lịch, phòng, sĩ số và tiến độ để quản trị viên kiểm tra nhanh tình trạng từng lớp.
+
 ### Hero hình ảnh
 
 Ảnh editorial chân thực về không gian trung tâm là điểm nhìn chính. Chú thích bên dưới kết nối ba miền Học vụ, Tài chính và Kết quả học tập, làm rõ thông điệp “cùng một nguồn dữ liệu” mà không mô phỏng màn hình nội bộ.
