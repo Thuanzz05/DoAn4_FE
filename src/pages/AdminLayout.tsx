@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from 'react'
 import {
   Bell,
+  Books,
   CalendarBlank,
   Certificate,
   ChalkboardTeacher,
@@ -14,7 +15,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 
-type AdminPage = 'admin' | 'students' | 'classes'
+type AdminPage = 'admin' | 'students' | 'courses' | 'classes'
 
 type AdminLayoutProps = {
   activePage: AdminPage
@@ -73,6 +74,9 @@ function AdminLayout({ activePage, children, mainId, onLogout, onNavigate, onNav
           </button>
           <button className={activePage === 'students' ? 'is-active' : ''} type="button" onClick={() => changePage('students')}>
             <Student aria-hidden="true" weight={activePage === 'students' ? 'fill' : 'regular'} />Học viên
+          </button>
+          <button className={activePage === 'courses' ? 'is-active' : ''} type="button" onClick={() => changePage('courses')}>
+            <Books aria-hidden="true" weight={activePage === 'courses' ? 'fill' : 'regular'} />Khóa học
           </button>
           <button className={activePage === 'classes' ? 'is-active' : ''} type="button" onClick={() => changePage('classes')}>
             <UsersThree aria-hidden="true" weight={activePage === 'classes' ? 'fill' : 'regular'} />Lớp học

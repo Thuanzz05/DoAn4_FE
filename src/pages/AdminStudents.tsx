@@ -34,7 +34,7 @@ type StudentRecord = {
 
 type AdminStudentsProps = {
   onLogout: () => void
-  onNavigate: (page: 'admin' | 'students' | 'classes') => void
+  onNavigate: (page: 'admin' | 'students' | 'courses' | 'classes') => void
   onNavigateHome: () => void
 }
 
