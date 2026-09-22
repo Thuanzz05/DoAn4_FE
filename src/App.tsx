@@ -21,12 +21,13 @@ import AdminCourses from './pages/AdminCourses'
 import AdminStudents from './pages/AdminStudents'
 import AdminTeachers from './pages/AdminTeachers'
 import AdminSchedule from './pages/AdminSchedule'
+import AdminInvoices from './pages/AdminInvoices'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule'
+type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -38,6 +39,7 @@ const getCurrentPage = (): Page => {
   if (path === '/admin/classes') return 'classes'
   if (path === '/admin/teachers') return 'teachers'
   if (path === '/admin/schedule') return 'schedule'
+  if (path === '/admin/invoices') return 'invoices'
   return 'home'
 }
 
@@ -102,6 +104,8 @@ function App() {
                   ? 'Quản lý giáo viên | Trung tâm'
                   : page === 'schedule'
                     ? 'Xếp lịch giảng dạy | Trung tâm'
+                    : page === 'invoices'
+                      ? 'Quản lý học phí | Trung tâm'
           : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
@@ -122,6 +126,8 @@ function App() {
                   ? '/admin/teachers'
                   : nextPage === 'schedule'
                     ? '/admin/schedule'
+                    : nextPage === 'invoices'
+                      ? '/admin/invoices'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
@@ -158,6 +164,10 @@ function App() {
 
   if (page === 'schedule') {
     return <AdminSchedule onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'invoices') {
+    return <AdminInvoices onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')
