@@ -8,12 +8,12 @@ import {
   Student,
   WarningCircle,
 } from '@phosphor-icons/react'
-import AdminLayout from './AdminLayout'
+import AdminLayout, { type AdminPage } from './AdminLayout'
 import './AdminDashboard.css'
 
 type AdminDashboardProps = {
   onLogout: () => void
-  onNavigate: (page: 'admin' | 'students' | 'courses' | 'classes') => void
+  onNavigate: (page: AdminPage) => void
   onNavigateHome: () => void
 }
 

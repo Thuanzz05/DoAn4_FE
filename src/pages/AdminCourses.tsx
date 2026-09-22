@@ -12,7 +12,7 @@ import {
   UsersThree,
   X,
 } from '@phosphor-icons/react'
-import AdminLayout from './AdminLayout'
+import AdminLayout, { type AdminPage } from './AdminLayout'
 import './AdminDashboard.css'
 import './AdminStudents.css'
 import './AdminCourses.css'
@@ -43,7 +43,7 @@ type CourseForm = {
 
 type AdminCoursesProps = {
   onLogout: () => void
-  onNavigate: (page: 'admin' | 'students' | 'courses' | 'classes') => void
+  onNavigate: (page: AdminPage) => void
   onNavigateHome: () => void
 }
 
