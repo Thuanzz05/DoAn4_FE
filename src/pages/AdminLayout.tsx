@@ -4,6 +4,7 @@ import {
   Books,
   CalendarBlank,
   Certificate,
+  ChartBar,
   ChalkboardTeacher,
   House,
   List,
@@ -15,7 +16,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 
-export type AdminPage = 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices'
+export type AdminPage = 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates'
 
 type AdminLayoutProps = {
   activePage: AdminPage
@@ -33,7 +34,7 @@ const notifications = [
 ] as const
 
 const upcomingModules = [
-  { label: 'Thi và chứng chỉ', icon: Certificate },
+  { label: 'Báo cáo', icon: ChartBar },
 ] as const
 
 function AdminLayout({ activePage, children, mainId, onLogout, onNavigate, onNavigateHome }: AdminLayoutProps) {
@@ -86,6 +87,9 @@ function AdminLayout({ activePage, children, mainId, onLogout, onNavigate, onNav
           </button>
           <button className={activePage === 'invoices' ? 'is-active' : ''} type="button" onClick={() => changePage('invoices')}>
             <Receipt aria-hidden="true" weight={activePage === 'invoices' ? 'fill' : 'regular'} />Học phí
+          </button>
+          <button className={activePage === 'certificates' ? 'is-active' : ''} type="button" onClick={() => changePage('certificates')}>
+            <Certificate aria-hidden="true" weight={activePage === 'certificates' ? 'fill' : 'regular'} />Thi và chứng chỉ
           </button>
           {upcomingModules.map((item) => {
             const Icon = item.icon

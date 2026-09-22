@@ -22,12 +22,13 @@ import AdminStudents from './pages/AdminStudents'
 import AdminTeachers from './pages/AdminTeachers'
 import AdminSchedule from './pages/AdminSchedule'
 import AdminInvoices from './pages/AdminInvoices'
+import AdminCertificates from './pages/AdminCertificates'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices'
+type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -40,6 +41,7 @@ const getCurrentPage = (): Page => {
   if (path === '/admin/teachers') return 'teachers'
   if (path === '/admin/schedule') return 'schedule'
   if (path === '/admin/invoices') return 'invoices'
+  if (path === '/admin/certificates') return 'certificates'
   return 'home'
 }
 
@@ -106,6 +108,8 @@ function App() {
                     ? 'Xếp lịch giảng dạy | Trung tâm'
                     : page === 'invoices'
                       ? 'Quản lý học phí | Trung tâm'
+                      : page === 'certificates'
+                        ? 'Thi và chứng chỉ | Trung tâm'
           : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
@@ -128,6 +132,8 @@ function App() {
                     ? '/admin/schedule'
                     : nextPage === 'invoices'
                       ? '/admin/invoices'
+                      : nextPage === 'certificates'
+                        ? '/admin/certificates'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
@@ -168,6 +174,10 @@ function App() {
 
   if (page === 'invoices') {
     return <AdminInvoices onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'certificates') {
+    return <AdminCertificates onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')
