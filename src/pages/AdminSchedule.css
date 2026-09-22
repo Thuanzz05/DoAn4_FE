@@ -1,0 +1,8 @@
+.schedule-guard { display: grid; grid-template-columns: auto 1fr; gap: 13px; align-items: center; margin-top: 16px; padding: 15px 18px; border: 1px solid #a9c0b1; border-radius: 11px; color: var(--admin-ink); background: #e3ede3; }
+.schedule-guard > svg { width: 24px; height: 24px; }
+.schedule-guard strong { font-size: 0.7rem; }
+.schedule-guard p { margin: 4px 0 0; color: var(--admin-muted); font-size: 0.62rem; line-height: 1.45; }
+.schedule-table { min-width: 920px !important; }
+.schedule-time-input { position: relative; }
+.schedule-time-input svg { position: absolute; top: 50%; left: 12px; width: 17px; height: 17px; color: var(--admin-muted); transform: translateY(-50%); pointer-events: none; }
+.schedule-time-input input { padding-left: 38px; }

@@ -15,7 +15,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 
-export type AdminPage = 'admin' | 'students' | 'courses' | 'classes' | 'teachers'
+export type AdminPage = 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule'
 
 type AdminLayoutProps = {
   activePage: AdminPage
@@ -33,7 +33,6 @@ const notifications = [
 ] as const
 
 const upcomingModules = [
-  { label: 'Lịch học', icon: CalendarBlank },
   { label: 'Học phí', icon: Receipt },
   { label: 'Thi và chứng chỉ', icon: Certificate },
 ] as const
@@ -82,6 +81,9 @@ function AdminLayout({ activePage, children, mainId, onLogout, onNavigate, onNav
           </button>
           <button className={activePage === 'teachers' ? 'is-active' : ''} type="button" onClick={() => changePage('teachers')}>
             <ChalkboardTeacher aria-hidden="true" weight={activePage === 'teachers' ? 'fill' : 'regular'} />Giáo viên
+          </button>
+          <button className={activePage === 'schedule' ? 'is-active' : ''} type="button" onClick={() => changePage('schedule')}>
+            <CalendarBlank aria-hidden="true" weight={activePage === 'schedule' ? 'fill' : 'regular'} />Lịch học
           </button>
           {upcomingModules.map((item) => {
             const Icon = item.icon

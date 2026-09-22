@@ -20,12 +20,13 @@ import AdminClasses from './pages/AdminClasses'
 import AdminCourses from './pages/AdminCourses'
 import AdminStudents from './pages/AdminStudents'
 import AdminTeachers from './pages/AdminTeachers'
+import AdminSchedule from './pages/AdminSchedule'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers'
+type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -36,6 +37,7 @@ const getCurrentPage = (): Page => {
   if (path === '/admin/courses') return 'courses'
   if (path === '/admin/classes') return 'classes'
   if (path === '/admin/teachers') return 'teachers'
+  if (path === '/admin/schedule') return 'schedule'
   return 'home'
 }
 
@@ -98,6 +100,8 @@ function App() {
                 ? 'Quản lý lớp học | Trung tâm'
                 : page === 'teachers'
                   ? 'Quản lý giáo viên | Trung tâm'
+                  : page === 'schedule'
+                    ? 'Xếp lịch giảng dạy | Trung tâm'
           : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
@@ -116,6 +120,8 @@ function App() {
                 ? '/admin/classes'
                 : nextPage === 'teachers'
                   ? '/admin/teachers'
+                  : nextPage === 'schedule'
+                    ? '/admin/schedule'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
@@ -148,6 +154,10 @@ function App() {
 
   if (page === 'teachers') {
     return <AdminTeachers onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'schedule') {
+    return <AdminSchedule onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')
