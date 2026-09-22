@@ -16,7 +16,7 @@ import {
   X,
 } from '@phosphor-icons/react'
 
-export type AdminPage = 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates'
+export type AdminPage = 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports'
 
 type AdminLayoutProps = {
   activePage: AdminPage
@@ -31,10 +31,6 @@ const notifications = [
   { title: 'Hai lịch học cần kiểm tra', detail: 'Có khả năng trùng phòng trong khung giờ 18:00.', icon: CalendarBlank },
   { title: 'Năm hóa đơn sắp đến hạn', detail: 'Kế toán cần xác nhận trạng thái trước ngày thi.', icon: Receipt },
   { title: 'Ba học viên chưa đủ điều kiện thi', detail: 'Chuyên cần hoặc học phí chưa đạt yêu cầu.', icon: WarningCircle },
-] as const
-
-const upcomingModules = [
-  { label: 'Báo cáo', icon: ChartBar },
 ] as const
 
 function AdminLayout({ activePage, children, mainId, onLogout, onNavigate, onNavigateHome }: AdminLayoutProps) {
@@ -91,10 +87,9 @@ function AdminLayout({ activePage, children, mainId, onLogout, onNavigate, onNav
           <button className={activePage === 'certificates' ? 'is-active' : ''} type="button" onClick={() => changePage('certificates')}>
             <Certificate aria-hidden="true" weight={activePage === 'certificates' ? 'fill' : 'regular'} />Thi và chứng chỉ
           </button>
-          {upcomingModules.map((item) => {
-            const Icon = item.icon
-            return <span className="is-disabled" aria-disabled="true" key={item.label}><Icon aria-hidden="true" />{item.label}<small>Sắp có</small></span>
-          })}
+          <button className={activePage === 'reports' ? 'is-active' : ''} type="button" onClick={() => changePage('reports')}>
+            <ChartBar aria-hidden="true" weight={activePage === 'reports' ? 'fill' : 'regular'} />Báo cáo
+          </button>
         </nav>
 
         <div className="admin-account">
