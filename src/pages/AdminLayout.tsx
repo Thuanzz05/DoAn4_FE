@@ -5,6 +5,7 @@ import {
 } from '@phosphor-icons/react'
 import { Avatar, Badge, Button, ConfigProvider, Drawer, Flex, Grid, Layout, Menu, Space, Typography } from 'antd'
 import type { MenuProps } from 'antd'
+import { workspaceTheme } from './workspaceTheme'
 import './AdminAnt.css'
 
 export type AdminPage = 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports'
@@ -52,7 +53,7 @@ function AdminLayout({ activePage, children, mainId, onLogout, onNavigate, onNav
   const brand = <button className="ant-admin-brand" type="button" onClick={onNavigateHome}><strong>Trung tâm</strong><span>Không gian quản trị</span></button>
 
   return (
-    <ConfigProvider theme={{ token: { colorPrimary: '#12332f', colorInfo: '#12332f', colorSuccess: '#397359', colorWarning: '#c98a2e', colorError: '#d44735', borderRadius: 10, fontFamily: 'Manrope, sans-serif', colorBgLayout: '#f3f6f3' }, components: { Layout: { siderBg: '#0b2d29', headerBg: '#ffffff' }, Menu: { darkItemBg: '#0b2d29', darkSubMenuItemBg: '#0b2d29', darkItemSelectedBg: '#dce8dc', darkItemSelectedColor: '#12332f', darkItemHoverBg: '#17433d' } } }}>
+    <ConfigProvider theme={workspaceTheme}>
       <Layout className="ant-admin-shell">
         {desktop && <Layout.Sider className="ant-admin-sider" width={248}>{brand}<div className="ant-admin-nav">{navigation}</div><div className="ant-admin-account"><Avatar shape="square">QT</Avatar><div><strong>Quản trị viên</strong><span>Giáo vụ trung tâm</span></div><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div></Layout.Sider>}
 

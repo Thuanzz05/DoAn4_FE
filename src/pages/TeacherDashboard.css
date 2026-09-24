@@ -1,0 +1,37 @@
+.teacher-alert { margin-top: 16px; }
+.teacher-dashboard-grid { margin-top: 16px; }
+.teacher-dashboard-grid > .ant-col > .ant-card { height: 100%; border-color: #dbe3dc; }
+.teacher-dashboard-grid .ant-card-head-title,
+.teacher-tasks-card .ant-card-head-title { font-family: var(--display); font-size: 1.35rem; font-weight: 600; }
+.teacher-session-list { width: 100%; }
+.teacher-session { min-height: 92px; padding: 16px 0; border-bottom: 1px solid #edf0ed; }
+.teacher-session:last-child { border-bottom: 0; }
+.teacher-session-time { display: flex; min-width: 128px; align-items: center; gap: 8px; color: #12332f; font-size: 0.68rem; }
+.teacher-session-time svg { width: 19px; height: 19px; }
+.teacher-session-info { display: flex; min-width: 180px; flex: 1; flex-direction: column; }
+.teacher-session-info .ant-typography { font-size: 0.7rem; }
+.teacher-session-info .ant-typography-secondary { display: flex; align-items: center; gap: 4px; margin-top: 7px; font-size: 0.62rem; }
+.teacher-session-info svg { width: 14px; height: 14px; }
+.teacher-tasks-card .ant-card-body { padding-block: 8px; }
+.teacher-tasks-card button,
+.teacher-task-done { display: grid; width: 100%; min-height: 76px; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border: 0; border-bottom: 1px solid #edf0ed; color: #12332f; background: transparent; text-align: left; }
+.teacher-tasks-card button { cursor: pointer; }
+.teacher-tasks-card button:hover strong { color: #397359; }
+.teacher-tasks-card button > span:nth-child(2),
+.teacher-task-done > span { display: flex; flex-direction: column; }
+.teacher-tasks-card strong { font-size: 0.67rem; }
+.teacher-tasks-card small { margin-top: 5px; color: #778781; font-size: 0.58rem; }
+.teacher-task-icon { display: grid; width: 38px; height: 38px; place-items: center; border-radius: 10px; }
+.teacher-task-icon svg { width: 21px; height: 21px; }
+.teacher-task-icon.danger { color: #a63125; background: #fff0ed; }
+.teacher-task-icon.warning { color: #98691e; background: #fff7e6; }
+.teacher-task-done { border-bottom: 0; color: #397359; }
+.teacher-task-done > svg { width: 24px; height: 24px; }
+.teacher-classes-card { margin-top: 16px; }
+.teacher-class-mark { display: grid; width: 36px; height: 36px; place-items: center; border-radius: 9px; color: #12332f; background: #e4eee5; font-size: 0.62rem; font-weight: 800; text-transform: uppercase; }
+
+@media (max-width: 620px) {
+  .teacher-session { align-items: flex-start !important; }
+  .teacher-session-time { width: 100%; }
+  .teacher-session-info { min-width: 150px; }
+}
