@@ -1,49 +1,14 @@
 import { useMemo, useState } from 'react'
-import {
-  CaretRight,
-  Certificate,
-  CheckCircle,
-  ClockCountdown,
-  DownloadSimple,
-  FilePdf,
-  GraduationCap,
-  MagnifyingGlass,
-  Receipt,
-  ShieldCheck,
-  Student,
-  X,
-  XCircle,
-} from '@phosphor-icons/react'
+import { CaretRight, Certificate, DownloadSimple, FilePdf, GraduationCap, MagnifyingGlass, Receipt, ShieldCheck, XCircle } from '@phosphor-icons/react'
+import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Input, Modal, Select, Space, Table, Tag, Typography, message } from 'antd'
+import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
-import './AdminDashboard.css'
-import './AdminStudents.css'
-import './AdminCourses.css'
-import './AdminCertificates.css'
+import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 
 type CertificateStatus = 'Chờ xét' | 'Đã xác nhận' | 'Đã cấp'
 type CertificateFilter = 'Tất cả' | 'Đủ điều kiện' | 'Không đủ điều kiện' | 'Đã cấp'
-
-type Candidate = {
-  id: number
-  studentCode: string
-  studentName: string
-  className: string
-  course: string
-  language: string
-  attendance: number
-  average: number
-  paid: boolean
-  status: CertificateStatus
-  certificateCode?: string
-  issuedAt?: string
-}
-
-type AdminCertificatesProps = {
-  onLogout: () => void
-  onNavigate: (page: AdminPage) => void
-  onNavigateHome: () => void
-}
-
+type Candidate = { id: number; studentCode: string; studentName: string; className: string; course: string; language: string; attendance: number; average: number; paid: boolean; status: CertificateStatus; certificateCode?: string; issuedAt?: string }
+type Props = { onLogout: () => void; onNavigate: (page: AdminPage) => void; onNavigateHome: () => void }
 const initialCandidates: Candidate[] = [
   { id: 1, studentCode: 'HV-0248', studentName: 'Nguyễn Khánh Linh', className: 'A2 Giao tiếp', course: 'Tiếng Anh A2', language: 'Tiếng Anh', attendance: 82, average: 7.6, paid: true, status: 'Chờ xét' },
   { id: 2, studentCode: 'HV-0217', studentName: 'Trần Gia Huy', className: 'B1 Tổng quát', course: 'Tiếng Anh B1', language: 'Tiếng Anh', attendance: 91, average: 8.2, paid: true, status: 'Đã xác nhận' },
@@ -53,125 +18,34 @@ const initialCandidates: Candidate[] = [
   { id: 6, studentCode: 'HV-0138', studentName: 'Đặng Thu Trang', className: 'HSK 3 - T04', course: 'Tiếng Trung HSK 3', language: 'Tiếng Trung', attendance: 85, average: 6.5, paid: true, status: 'Chờ xét' },
   { id: 7, studentCode: 'HV-0119', studentName: 'Bùi Thanh Hà', className: 'N4 - N03', course: 'Tiếng Nhật N4', language: 'Tiếng Nhật', attendance: 79, average: 4.9, paid: false, status: 'Chờ xét' },
 ]
+const eligible = (item: Candidate) => item.paid && item.average >= 5
+const date = (value: string) => new Intl.DateTimeFormat('vi-VN').format(new Date(`${value}T00:00:00`))
 
-const isEligible = (candidate: Candidate) => candidate.paid && candidate.average >= 5
-const formatDate = (value: string) => new Intl.DateTimeFormat('vi-VN').format(new Date(`${value}T00:00:00`))
-
-function AdminCertificates({ onLogout, onNavigate, onNavigateHome }: AdminCertificatesProps) {
-  const [candidates, setCandidates] = useState(initialCandidates)
-  const [query, setQuery] = useState('')
-  const [className, setClassName] = useState('Tất cả')
-  const [filter, setFilter] = useState<CertificateFilter>('Tất cả')
-  const [selectedIds, setSelectedIds] = useState<number[]>([])
-  const [detailId, setDetailId] = useState<number | null>(null)
-  const [feedback, setFeedback] = useState<string | null>(null)
-
-  const classNames = [...new Set(candidates.map((candidate) => candidate.className))]
-  const selectedCandidate = candidates.find((candidate) => candidate.id === detailId) ?? null
-  const confirmedCount = candidates.filter((candidate) => candidate.status === 'Đã xác nhận').length
-  const eligibleCount = candidates.filter((candidate) => isEligible(candidate) && candidate.status !== 'Đã cấp').length
-  const blockedCount = candidates.filter((candidate) => !isEligible(candidate)).length
-  const issuedCount = candidates.filter((candidate) => candidate.status === 'Đã cấp').length
-
-  const filteredCandidates = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('vi')
-    return candidates.filter((candidate) => {
-      const matchesQuery = !normalizedQuery || [candidate.studentCode, candidate.studentName, candidate.className, candidate.course, candidate.language, candidate.certificateCode ?? '']
-        .some((value) => value.toLocaleLowerCase('vi').includes(normalizedQuery))
-      const matchesFilter = filter === 'Tất cả'
-        || (filter === 'Đủ điều kiện' && isEligible(candidate) && candidate.status !== 'Đã cấp')
-        || (filter === 'Không đủ điều kiện' && !isEligible(candidate))
-        || (filter === 'Đã cấp' && candidate.status === 'Đã cấp')
-      return matchesQuery && matchesFilter && (className === 'Tất cả' || candidate.className === className)
-    })
-  }, [candidates, className, filter, query])
-
-  const selectableCandidates = filteredCandidates.filter((candidate) => isEligible(candidate) && candidate.status === 'Chờ xét')
-  const allVisibleSelected = selectableCandidates.length > 0 && selectableCandidates.every((candidate) => selectedIds.includes(candidate.id))
-
-  const toggleCandidate = (id: number) => {
-    setSelectedIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
-  }
-
-  const toggleVisible = () => {
-    const visibleIds = selectableCandidates.map((candidate) => candidate.id)
-    setSelectedIds((current) => allVisibleSelected
-      ? current.filter((id) => !visibleIds.includes(id))
-      : [...new Set([...current, ...visibleIds])])
-  }
-
-  const confirmCandidates = () => {
-    if (selectedIds.length === 0) return
-    if (!window.confirm(`Xác nhận ${selectedIds.length} học viên đủ điều kiện cấp chứng chỉ?`)) return
-    setCandidates((current) => current.map((candidate) => selectedIds.includes(candidate.id) && isEligible(candidate)
-      ? { ...candidate, status: 'Đã xác nhận' }
-      : candidate))
-    setFeedback(`Đã xác nhận danh sách gồm ${selectedIds.length} học viên.`)
-    setSelectedIds([])
-  }
-
-  const exportCertificates = () => {
-    if (confirmedCount === 0) return
-    if (!window.confirm(`Kết xuất ${confirmedCount} chứng chỉ PDF đã xác nhận?`)) return
-    const issuedAt = new Date().toISOString().slice(0, 10)
-    let sequence = Math.max(18, ...candidates.map((candidate) => Number(candidate.certificateCode?.split('-').at(-1) ?? 0)))
-    setCandidates((current) => current.map((candidate) => {
-      if (candidate.status !== 'Đã xác nhận') return candidate
-      sequence += 1
-      return { ...candidate, status: 'Đã cấp', certificateCode: `CC-2026-${String(sequence).padStart(3, '0')}`, issuedAt }
-    }))
-    setFeedback(`Đã kết xuất ${confirmedCount} chứng chỉ và cập nhật trạng thái cấp phát.`)
-  }
-
-  const downloadCertificate = (candidate: Candidate) => {
-    setFeedback(`Đã gửi yêu cầu tải tệp ${candidate.certificateCode}.pdf. Tệp thật sẽ được nhận từ API backend.`)
-  }
-
-  const reissueCertificate = (candidate: Candidate) => {
-    if (!window.confirm(`Cấp lại chứng chỉ ${candidate.certificateCode} cho ${candidate.studentName}?`)) return
-    const issuedAt = new Date().toISOString().slice(0, 10)
-    setCandidates((current) => current.map((item) => item.id === candidate.id ? { ...item, issuedAt } : item))
-    setFeedback(`Đã ghi nhận cấp lại chứng chỉ ${candidate.certificateCode}.`)
-  }
-
-  return (
-    <AdminLayout activePage="certificates" mainId="certificate-management" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-      <section className="students-heading certificate-heading" aria-labelledby="certificates-title">
-        <div><span className="section-kicker">Kết quả cuối khóa</span><h1 id="certificates-title">Thi và chứng chỉ</h1><p>Xét điều kiện, xác nhận danh sách và quản lý lịch sử cấp chứng chỉ.</p></div>
-        <div className="certificate-heading-actions">
-          <button type="button" onClick={confirmCandidates} disabled={selectedIds.length === 0}><ShieldCheck aria-hidden="true" weight="bold" />Xác nhận ({selectedIds.length})</button>
-          <button className="is-primary" type="button" onClick={exportCertificates} disabled={confirmedCount === 0}><FilePdf aria-hidden="true" weight="bold" />Kết xuất PDF ({confirmedCount})</button>
-        </div>
-      </section>
-
-      <section className="student-summary" aria-label="Tổng quan xét cấp chứng chỉ">
-        <article><GraduationCap aria-hidden="true" weight="duotone" /><div><span>Đủ điều kiện</span><strong>{String(eligibleCount).padStart(2, '0')}</strong><p>Đã thanh toán và điểm từ 5.0</p></div></article>
-        <article><XCircle aria-hidden="true" weight="duotone" /><div><span>Chưa đủ điều kiện</span><strong>{String(blockedCount).padStart(2, '0')}</strong><p>Còn nợ học phí hoặc điểm dưới 5.0</p></div></article>
-        <article><Certificate aria-hidden="true" weight="duotone" /><div><span>Đã cấp</span><strong>{String(issuedCount).padStart(2, '0')}</strong><p>Có thể tra cứu và tải lại PDF</p></div></article>
-      </section>
-
-      {feedback && <div className="course-feedback" role="status"><span>{feedback}</span><button type="button" onClick={() => setFeedback(null)} aria-label="Đóng thông báo"><X aria-hidden="true" /></button></div>}
-
-      <section className="students-panel" aria-labelledby="candidate-list-title">
-        <div className="students-panel-head"><div><h2 id="candidate-list-title">Danh sách xét cấp</h2><p>Điều kiện tự động: học phí đã thanh toán và điểm trung bình từ 5.0.</p></div><div className="student-filters certificate-filters"><label className="student-search"><span className="sr-only">Tìm kiếm học viên hoặc chứng chỉ</span><MagnifyingGlass aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Học viên, lớp hoặc mã chứng chỉ" /></label><label><span className="sr-only">Lọc theo điều kiện</span><select value={filter} onChange={(event) => setFilter(event.target.value as CertificateFilter)}><option>Tất cả</option><option>Đủ điều kiện</option><option>Không đủ điều kiện</option><option>Đã cấp</option></select></label><label><span className="sr-only">Lọc theo lớp</span><select value={className} onChange={(event) => setClassName(event.target.value)}><option>Tất cả</option>{classNames.map((item) => <option key={item}>{item}</option>)}</select></label></div></div>
-        <p className="student-result-count" aria-live="polite">Hiển thị {filteredCandidates.length} học viên · {selectedIds.length} đã chọn</p>
-        <div className="student-table-wrap">
-          <table className="certificate-table">
-            <thead><tr><th className="certificate-select"><input type="checkbox" checked={allVisibleSelected} onChange={toggleVisible} disabled={selectableCandidates.length === 0} aria-label="Chọn tất cả học viên đủ điều kiện đang hiển thị" /></th><th>Học viên</th><th>Lớp học</th><th>Chuyên cần</th><th>Điểm TB</th><th>Học phí</th><th>Kết quả</th><th><span className="sr-only">Thao tác</span></th></tr></thead>
-            <tbody>{filteredCandidates.map((candidate) => {
-              const eligible = isEligible(candidate)
-              const selectable = eligible && candidate.status === 'Chờ xét'
-              const resultLabel = candidate.status === 'Đã cấp' ? 'Đã cấp' : eligible ? candidate.status === 'Đã xác nhận' ? 'Đã xác nhận' : 'Đủ điều kiện' : 'Chưa đạt'
-              return <tr key={candidate.id}><td className="certificate-select"><input type="checkbox" checked={selectedIds.includes(candidate.id)} onChange={() => toggleCandidate(candidate.id)} disabled={!selectable} aria-label={`Chọn ${candidate.studentName}`} /></td><td><div className="student-identity"><span aria-hidden="true">{candidate.studentName.split(' ').slice(-2).map((part) => part[0]).join('')}</span><div><strong>{candidate.studentName}</strong><small>{candidate.studentCode}</small></div></div></td><td><strong className="certificate-class">{candidate.className}</strong><small className="certificate-language">{candidate.language}</small></td><td>{candidate.attendance}%</td><td className={candidate.average < 5 ? 'certificate-score is-low' : 'certificate-score'}>{candidate.average.toFixed(1)}</td><td><span className={`certificate-payment ${candidate.paid ? 'is-paid' : 'is-due'}`}>{candidate.paid ? 'Đã thanh toán' : 'Còn nợ'}</span></td><td><span className={`certificate-status ${candidate.status === 'Đã cấp' ? 'issued' : eligible ? candidate.status === 'Đã xác nhận' ? 'confirmed' : 'eligible' : 'blocked'}`}>{resultLabel}</span></td><td><button type="button" onClick={() => setDetailId(candidate.id)} aria-label={`Xem hồ sơ ${candidate.studentName}`}><CaretRight aria-hidden="true" weight="bold" /></button></td></tr>
-            })}</tbody>
-          </table>
-          {filteredCandidates.length === 0 && <div className="student-empty"><MagnifyingGlass aria-hidden="true" /><strong>Không tìm thấy hồ sơ phù hợp</strong><p>Thử thay đổi từ khóa hoặc bộ lọc.</p></div>}
-        </div>
-      </section>
-
-      {selectedCandidate && <><button className="student-drawer-backdrop" type="button" onClick={() => setDetailId(null)} aria-label="Đóng hồ sơ xét cấp" /><aside className="student-drawer" role="dialog" aria-modal="true" aria-labelledby="certificate-drawer-title"><div className="student-drawer-head"><span>Hồ sơ xét cấp</span><button type="button" onClick={() => setDetailId(null)} aria-label="Đóng hồ sơ"><X aria-hidden="true" /></button></div><div className="certificate-drawer-heading"><Certificate aria-hidden="true" weight="duotone" /><div><h2 id="certificate-drawer-title">{selectedCandidate.studentName}</h2><p>{selectedCandidate.studentCode} · {selectedCandidate.className}</p></div></div><div className="certificate-condition-list"><div className={selectedCandidate.paid ? 'is-passed' : 'is-blocked'}><Receipt aria-hidden="true" weight="fill" /><span><small>Học phí</small><strong>{selectedCandidate.paid ? 'Đã hoàn tất' : 'Chưa hoàn tất'}</strong></span>{selectedCandidate.paid ? <CheckCircle aria-hidden="true" weight="fill" /> : <XCircle aria-hidden="true" weight="fill" />}</div><div className={selectedCandidate.average >= 5 ? 'is-passed' : 'is-blocked'}><GraduationCap aria-hidden="true" weight="fill" /><span><small>Điểm trung bình</small><strong>{selectedCandidate.average.toFixed(1)} / 10</strong></span>{selectedCandidate.average >= 5 ? <CheckCircle aria-hidden="true" weight="fill" /> : <XCircle aria-hidden="true" weight="fill" />}</div><div className="is-neutral"><ClockCountdown aria-hidden="true" weight="fill" /><span><small>Chuyên cần</small><strong>{selectedCandidate.attendance}%</strong></span></div></div><div className={`certificate-decision ${isEligible(selectedCandidate) ? 'is-approved' : ''}`}><ShieldCheck aria-hidden="true" weight="fill" /><div><span>Kết luận hệ thống</span><strong>{isEligible(selectedCandidate) ? 'Đủ điều kiện cấp chứng chỉ' : 'Chưa đủ điều kiện cấp chứng chỉ'}</strong></div></div>{selectedCandidate.status === 'Đã cấp' && <dl className="student-details certificate-record"><div><dt><Certificate aria-hidden="true" />Mã chứng chỉ</dt><dd>{selectedCandidate.certificateCode}</dd></div><div><dt><Student aria-hidden="true" />Khóa học</dt><dd>{selectedCandidate.course}</dd></div><div><dt><CheckCircle aria-hidden="true" />Ngày cấp</dt><dd>{selectedCandidate.issuedAt && formatDate(selectedCandidate.issuedAt)}</dd></div></dl>}<div className="invoice-actions">{selectedCandidate.status === 'Đã cấp' && <><button className="is-primary" type="button" onClick={() => downloadCertificate(selectedCandidate)}><DownloadSimple aria-hidden="true" />Tải lại PDF</button><button type="button" onClick={() => reissueCertificate(selectedCandidate)}><Certificate aria-hidden="true" />Cấp lại chứng chỉ</button></>}{selectedCandidate.status === 'Chờ xét' && isEligible(selectedCandidate) && <button className="is-primary" type="button" onClick={() => toggleCandidate(selectedCandidate.id)}><CheckCircle aria-hidden="true" />{selectedIds.includes(selectedCandidate.id) ? 'Bỏ chọn khỏi danh sách' : 'Chọn để xác nhận'}</button>}</div></aside></>}
-    </AdminLayout>
-  )
+function AdminCertificates({ onLogout, onNavigate, onNavigateHome }: Props) {
+  const [candidates, setCandidates] = useState(initialCandidates); const [query, setQuery] = useState(''); const [className, setClassName] = useState('Tất cả'); const [filter, setFilter] = useState<CertificateFilter>('Tất cả')
+  const [selectedIds, setSelectedIds] = useState<React.Key[]>([]); const [detail, setDetail] = useState<Candidate | null>(null); const [messageApi, contextHolder] = message.useMessage()
+  const [modal, modalContextHolder] = Modal.useModal()
+  const confirmedCount = candidates.filter((item) => item.status === 'Đã xác nhận').length
+  const data = useMemo(() => candidates.filter((item) => {
+    const matches = !query.trim() || [item.studentCode, item.studentName, item.className, item.course, item.certificateCode ?? ''].some((value) => value.toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi')))
+    const status = filter === 'Tất cả' || (filter === 'Đủ điều kiện' && eligible(item) && item.status !== 'Đã cấp') || (filter === 'Không đủ điều kiện' && !eligible(item)) || (filter === 'Đã cấp' && item.status === 'Đã cấp')
+    return matches && status && (className === 'Tất cả' || item.className === className)
+  }), [candidates, className, filter, query])
+  const confirm = () => modal.confirm({ title: `Xác nhận ${selectedIds.length} học viên?`, content: 'Danh sách đã chọn đáp ứng điều kiện học phí và điểm trung bình.', okText: 'Xác nhận', onOk: () => { setCandidates((current) => current.map((item) => selectedIds.includes(item.id) && eligible(item) ? { ...item, status: 'Đã xác nhận' } : item)); setSelectedIds([]); messageApi.success('Đã xác nhận danh sách.') } })
+  const exportPdf = () => modal.confirm({ title: `Kết xuất ${confirmedCount} chứng chỉ?`, content: 'Trạng thái cấp phát sẽ được cập nhật.', okText: 'Kết xuất PDF', onOk: () => { let sequence = Math.max(18, ...candidates.map((item) => Number(item.certificateCode?.split('-').at(-1) ?? 0))); const issuedAt = new Date().toISOString().slice(0, 10); setCandidates((current) => current.map((item) => item.status === 'Đã xác nhận' ? { ...item, status: 'Đã cấp', certificateCode: `CC-2026-${String(++sequence).padStart(3, '0')}`, issuedAt } : item)); setDetail(null); messageApi.success('Đã kết xuất chứng chỉ.') } })
+  const columns: TableProps<Candidate>['columns'] = [
+    { title: 'Học viên', key: 'student', render: (_, item) => <div className="admin-entity"><Avatar shape="square">{item.studentName.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div><strong>{item.studentName}</strong><small>{item.studentCode}</small></div></div> },
+    { title: 'Lớp học', key: 'class', render: (_, item) => <div><Typography.Text strong>{item.className}</Typography.Text><br /><Typography.Text type="secondary">{item.language}</Typography.Text></div> },
+    { title: 'Chuyên cần', dataIndex: 'attendance', render: (value) => `${value}%` }, { title: 'Điểm TB', dataIndex: 'average', render: (value) => <Typography.Text type={value < 5 ? 'danger' : undefined} strong>{value.toFixed(1)}</Typography.Text> },
+    { title: 'Học phí', dataIndex: 'paid', render: (value) => <Tag color={value ? 'green' : 'red'}>{value ? 'Đã thanh toán' : 'Còn nợ'}</Tag> },
+    { title: 'Kết quả', key: 'result', render: (_, item) => <Tag color={item.status === 'Đã cấp' ? 'blue' : !eligible(item) ? 'red' : item.status === 'Đã xác nhận' ? 'gold' : 'green'}>{item.status === 'Chờ xét' ? eligible(item) ? 'Đủ điều kiện' : 'Chưa đạt' : item.status}</Tag> },
+    { title: '', key: 'action', width: 52, render: (_, item) => <Button icon={<CaretRight />} onClick={() => setDetail(item)} aria-label={`Xem hồ sơ ${item.studentName}`} /> },
+  ]
+  return <AdminLayout activePage="certificates" mainId="certificate-management" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
+    {contextHolder}{modalContextHolder}<AdminPageHeader kicker="Kết quả cuối khóa" title="Thi và chứng chỉ" description="Xét điều kiện, xác nhận danh sách và quản lý lịch sử cấp chứng chỉ." actions={<Space wrap><Button icon={<ShieldCheck />} onClick={confirm} disabled={!selectedIds.length}>Xác nhận ({selectedIds.length})</Button><Button type="primary" icon={<FilePdf />} onClick={exportPdf} disabled={!confirmedCount}>Kết xuất PDF ({confirmedCount})</Button></Space>} />
+    <AdminSummary items={[{ label: 'Đủ điều kiện', value: candidates.filter((item) => eligible(item) && item.status !== 'Đã cấp').length, detail: 'Đã thanh toán và điểm từ 5.0', icon: <GraduationCap weight="duotone" />, tone: 'success' }, { label: 'Chưa đủ điều kiện', value: candidates.filter((item) => !eligible(item)).length, detail: 'Còn nợ học phí hoặc điểm dưới 5.0', icon: <XCircle weight="duotone" />, tone: 'danger' }, { label: 'Đã cấp', value: candidates.filter((item) => item.status === 'Đã cấp').length, detail: 'Có thể tra cứu và tải lại PDF', icon: <Certificate weight="duotone" /> }]} />
+    <Card className="admin-table-card" title="Danh sách xét cấp" extra={<Space wrap><Input allowClear prefix={<MagnifyingGlass />} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Học viên, lớp hoặc mã" /><Select value={filter} onChange={setFilter} options={['Tất cả', 'Đủ điều kiện', 'Không đủ điều kiện', 'Đã cấp'].map((value) => ({ value, label: value }))} /><Select value={className} onChange={setClassName} options={['Tất cả', ...new Set(candidates.map((item) => item.className))].map((value) => ({ value, label: value }))} /></Space>}><Table rowKey="id" columns={columns} dataSource={data} scroll={{ x: 940 }} rowSelection={{ selectedRowKeys: selectedIds, onChange: setSelectedIds, getCheckboxProps: (item) => ({ disabled: !eligible(item) || item.status !== 'Chờ xét' }) }} pagination={{ pageSize: 6, showTotal: (total) => `${total} học viên` }} /></Card>
+    <Drawer size={460} title="Hồ sơ xét cấp" open={Boolean(detail)} onClose={() => setDetail(null)}>{detail && <><Flex align="center" gap={12}><Certificate size={38} /><div><Typography.Title className="admin-drawer-title" level={3}>{detail.studentName}</Typography.Title><Typography.Text type="secondary">{detail.studentCode} · {detail.className}</Typography.Text></div></Flex><Space orientation="vertical" style={{ width: '100%', marginTop: 22 }}><Alert type={detail.paid ? 'success' : 'error'} showIcon icon={<Receipt />} title="Học phí" description={detail.paid ? 'Đã hoàn tất' : 'Chưa hoàn tất'} /><Alert type={detail.average >= 5 ? 'success' : 'error'} showIcon icon={<GraduationCap />} title="Điểm trung bình" description={`${detail.average.toFixed(1)} / 10`} /><Alert type={eligible(detail) ? 'success' : 'warning'} showIcon title={eligible(detail) ? 'Đủ điều kiện cấp chứng chỉ' : 'Chưa đủ điều kiện cấp chứng chỉ'} /></Space>{detail.status === 'Đã cấp' && <><Descriptions bordered column={1} size="small" style={{ marginTop: 20 }} items={[{ key: 'code', label: 'Mã chứng chỉ', children: detail.certificateCode }, { key: 'course', label: 'Khóa học', children: detail.course }, { key: 'issued', label: 'Ngày cấp', children: detail.issuedAt && date(detail.issuedAt) }]} /><Space orientation="vertical" style={{ width: '100%', marginTop: 18 }}><Button block type="primary" icon={<DownloadSimple />} onClick={() => messageApi.info('Tệp PDF sẽ được nhận từ API backend.')}>Tải lại PDF</Button><Button block icon={<Certificate />} onClick={() => messageApi.success(`Đã ghi nhận cấp lại ${detail.certificateCode}`)}>Cấp lại chứng chỉ</Button></Space></>}</>}</Drawer>
+  </AdminLayout>
 }
-
 export default AdminCertificates

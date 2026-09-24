@@ -1,20 +1,11 @@
 import { type ReactNode, useState } from 'react'
 import {
-  Bell,
-  Books,
-  CalendarBlank,
-  Certificate,
-  ChartBar,
-  ChalkboardTeacher,
-  House,
-  List,
-  Receipt,
-  SignOut,
-  Student,
-  UsersThree,
-  WarningCircle,
-  X,
+  Bell, Books, CalendarBlank, Certificate, ChartBar, ChalkboardTeacher,
+  House, List, Receipt, SignOut, Student, UsersThree, WarningCircle,
 } from '@phosphor-icons/react'
+import { Avatar, Badge, Button, ConfigProvider, Drawer, Flex, Grid, Layout, Menu, Space, Typography } from 'antd'
+import type { MenuProps } from 'antd'
+import './AdminAnt.css'
 
 export type AdminPage = 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports'
 
@@ -27,6 +18,18 @@ type AdminLayoutProps = {
   onNavigateHome: () => void
 }
 
+const navItems: MenuProps['items'] = [
+  { key: 'admin', icon: <House weight="duotone" />, label: 'Tổng quan' },
+  { key: 'students', icon: <Student weight="duotone" />, label: 'Học viên' },
+  { key: 'courses', icon: <Books weight="duotone" />, label: 'Khóa học' },
+  { key: 'classes', icon: <UsersThree weight="duotone" />, label: 'Lớp học' },
+  { key: 'teachers', icon: <ChalkboardTeacher weight="duotone" />, label: 'Giáo viên' },
+  { key: 'schedule', icon: <CalendarBlank weight="duotone" />, label: 'Lịch học' },
+  { key: 'invoices', icon: <Receipt weight="duotone" />, label: 'Học phí' },
+  { key: 'certificates', icon: <Certificate weight="duotone" />, label: 'Thi và chứng chỉ' },
+  { key: 'reports', icon: <ChartBar weight="duotone" />, label: 'Báo cáo' },
+]
+
 const notifications = [
   { title: 'Hai lịch học cần kiểm tra', detail: 'Có khả năng trùng phòng trong khung giờ 18:00.', icon: CalendarBlank },
   { title: 'Năm hóa đơn sắp đến hạn', detail: 'Kế toán cần xác nhận trạng thái trước ngày thi.', icon: Receipt },
@@ -34,112 +37,49 @@ const notifications = [
 ] as const
 
 function AdminLayout({ activePage, children, mainId, onLogout, onNavigate, onNavigateHome }: AdminLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const screens = Grid.useBreakpoint()
+  const desktop = Boolean(screens.lg)
+  const today = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
 
-  const today = new Intl.DateTimeFormat('vi-VN', {
-    weekday: 'long',
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  }).format(new Date())
-
-  const changePage = (page: AdminPage) => {
-    setSidebarOpen(false)
-    onNavigate(page)
+  const changePage = (key: string) => {
+    setMenuOpen(false)
+    onNavigate(key as AdminPage)
   }
 
+  const navigation = <Menu mode="inline" theme="dark" selectedKeys={[activePage]} items={navItems} onClick={({ key }) => changePage(key)} />
+  const brand = <button className="ant-admin-brand" type="button" onClick={onNavigateHome}><strong>Trung tâm</strong><span>Không gian quản trị</span></button>
+
   return (
-    <div className="admin-shell">
-      <aside className={`admin-sidebar${sidebarOpen ? ' is-open' : ''}`} aria-label="Điều hướng quản trị">
-        <div className="admin-sidebar-head">
-          <button className="admin-wordmark" type="button" onClick={onNavigateHome} aria-label="Về trang chủ">
-            <span>Trung tâm</span>
-            <small>Không gian quản trị</small>
-          </button>
-          <button className="sidebar-close" type="button" onClick={() => setSidebarOpen(false)} aria-label="Đóng điều hướng" title="Đóng">
-            <X aria-hidden="true" weight="bold" />
-          </button>
-        </div>
+    <ConfigProvider theme={{ token: { colorPrimary: '#12332f', colorInfo: '#12332f', colorSuccess: '#397359', colorWarning: '#c98a2e', colorError: '#d44735', borderRadius: 10, fontFamily: 'Manrope, sans-serif', colorBgLayout: '#f3f6f3' }, components: { Layout: { siderBg: '#0b2d29', headerBg: '#ffffff' }, Menu: { darkItemBg: '#0b2d29', darkSubMenuItemBg: '#0b2d29', darkItemSelectedBg: '#dce8dc', darkItemSelectedColor: '#12332f', darkItemHoverBg: '#17433d' } } }}>
+      <Layout className="ant-admin-shell">
+        {desktop && <Layout.Sider className="ant-admin-sider" width={248}>{brand}<div className="ant-admin-nav">{navigation}</div><div className="ant-admin-account"><Avatar shape="square">QT</Avatar><div><strong>Quản trị viên</strong><span>Giáo vụ trung tâm</span></div><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div></Layout.Sider>}
 
-        <nav className="admin-nav" aria-label="Chức năng quản trị">
-          <button className={activePage === 'admin' ? 'is-active' : ''} type="button" onClick={() => changePage('admin')}>
-            <House aria-hidden="true" weight={activePage === 'admin' ? 'fill' : 'regular'} />Tổng quan
-          </button>
-          <button className={activePage === 'students' ? 'is-active' : ''} type="button" onClick={() => changePage('students')}>
-            <Student aria-hidden="true" weight={activePage === 'students' ? 'fill' : 'regular'} />Học viên
-          </button>
-          <button className={activePage === 'courses' ? 'is-active' : ''} type="button" onClick={() => changePage('courses')}>
-            <Books aria-hidden="true" weight={activePage === 'courses' ? 'fill' : 'regular'} />Khóa học
-          </button>
-          <button className={activePage === 'classes' ? 'is-active' : ''} type="button" onClick={() => changePage('classes')}>
-            <UsersThree aria-hidden="true" weight={activePage === 'classes' ? 'fill' : 'regular'} />Lớp học
-          </button>
-          <button className={activePage === 'teachers' ? 'is-active' : ''} type="button" onClick={() => changePage('teachers')}>
-            <ChalkboardTeacher aria-hidden="true" weight={activePage === 'teachers' ? 'fill' : 'regular'} />Giáo viên
-          </button>
-          <button className={activePage === 'schedule' ? 'is-active' : ''} type="button" onClick={() => changePage('schedule')}>
-            <CalendarBlank aria-hidden="true" weight={activePage === 'schedule' ? 'fill' : 'regular'} />Lịch học
-          </button>
-          <button className={activePage === 'invoices' ? 'is-active' : ''} type="button" onClick={() => changePage('invoices')}>
-            <Receipt aria-hidden="true" weight={activePage === 'invoices' ? 'fill' : 'regular'} />Học phí
-          </button>
-          <button className={activePage === 'certificates' ? 'is-active' : ''} type="button" onClick={() => changePage('certificates')}>
-            <Certificate aria-hidden="true" weight={activePage === 'certificates' ? 'fill' : 'regular'} />Thi và chứng chỉ
-          </button>
-          <button className={activePage === 'reports' ? 'is-active' : ''} type="button" onClick={() => changePage('reports')}>
-            <ChartBar aria-hidden="true" weight={activePage === 'reports' ? 'fill' : 'regular'} />Báo cáo
-          </button>
-        </nav>
+        <Drawer className="ant-admin-menu-drawer" placement="left" size={280} open={!desktop && menuOpen} onClose={() => setMenuOpen(false)} closable={false} styles={{ body: { padding: 0, background: '#0b2d29' } }}>
+          {brand}<div className="ant-admin-nav">{navigation}</div><div className="ant-admin-account"><Avatar shape="square">QT</Avatar><div><strong>Quản trị viên</strong><span>Giáo vụ trung tâm</span></div><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div>
+        </Drawer>
 
-        <div className="admin-account">
-          <span className="admin-avatar" aria-hidden="true">QT</span>
-          <div><strong>Quản trị viên</strong><small>Giáo vụ trung tâm</small></div>
-          <button type="button" onClick={onLogout} aria-label="Đăng xuất" title="Đăng xuất"><SignOut aria-hidden="true" /></button>
-        </div>
-      </aside>
+        <Layout>
+          <Layout.Header className="ant-admin-header">
+            <Flex align="center" justify="space-between" gap={16}>
+              <Flex align="center" gap={12}>
+                {!desktop && <Button icon={<List weight="bold" />} onClick={() => setMenuOpen(true)} aria-label="Mở điều hướng" />}
+                <div className="ant-admin-date"><span>Dữ liệu minh họa</span><time dateTime={new Date().toISOString()}>{today}</time></div>
+              </Flex>
+              <Space size={14}><Badge count={notifications.length} size="small"><Button icon={<Bell />} onClick={() => setNotificationsOpen(true)} aria-label="Xem thông báo" /></Badge><Typography.Text strong className="ant-admin-role">Quản trị viên</Typography.Text></Space>
+            </Flex>
+          </Layout.Header>
+          <Layout.Content className="ant-admin-content"><main id={mainId}>{children}</main></Layout.Content>
+        </Layout>
 
-      {sidebarOpen && <button className="sidebar-backdrop" type="button" onClick={() => setSidebarOpen(false)} aria-label="Đóng điều hướng" />}
-
-      <div className="admin-workspace">
-        <header className="admin-topbar">
-          <button className="sidebar-toggle" type="button" onClick={() => setSidebarOpen(true)} aria-label="Mở điều hướng" title="Mở điều hướng">
-            <List aria-hidden="true" weight="bold" />
-          </button>
-          <div className="admin-topbar-title">
-            <span>Dữ liệu minh họa</span>
-            <time dateTime={new Date().toISOString()}>{today}</time>
-          </div>
-          <div className="admin-topbar-actions">
-            <button
-              className="notification-button"
-              type="button"
-              onClick={() => setNotificationsOpen((current) => !current)}
-              aria-expanded={notificationsOpen}
-              aria-controls="notification-panel"
-              aria-label="Xem thông báo"
-              title="Thông báo"
-            >
-              <Bell aria-hidden="true" />
-              <span>3</span>
-            </button>
-            <span className="topbar-role">Quản trị viên</span>
-          </div>
-
-          {notificationsOpen && (
-            <div className="notification-panel" id="notification-panel">
-              <div><strong>Thông báo nghiệp vụ</strong><button type="button" onClick={() => setNotificationsOpen(false)} aria-label="Đóng thông báo"><X aria-hidden="true" /></button></div>
-              {notifications.map((notification) => {
-                const Icon = notification.icon
-                return <p key={notification.title}><Icon aria-hidden="true" /><span><strong>{notification.title}</strong><small>{notification.detail}</small></span></p>
-              })}
-            </div>
-          )}
-        </header>
-
-        <main className="admin-main" id={mainId}>{children}</main>
-      </div>
-    </div>
+        <Drawer title="Thông báo nghiệp vụ" size={400} open={notificationsOpen} onClose={() => setNotificationsOpen(false)}>
+          <Space orientation="vertical" size={0} className="ant-admin-notifications">
+            {notifications.map((notification) => { const Icon = notification.icon; return <Flex gap={12} key={notification.title}><Icon weight="duotone" /><div><Typography.Text strong>{notification.title}</Typography.Text><Typography.Paragraph type="secondary">{notification.detail}</Typography.Paragraph></div></Flex> })}
+          </Space>
+        </Drawer>
+      </Layout>
+    </ConfigProvider>
   )
 }
 

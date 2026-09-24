@@ -1,56 +1,14 @@
-import { type FormEvent, useMemo, useState } from 'react'
-import {
-  Bank,
-  CalendarBlank,
-  CaretRight,
-  CheckCircle,
-  CurrencyCircleDollar,
-  MagnifyingGlass,
-  Plus,
-  Receipt,
-  ShieldWarning,
-  Student,
-  X,
-} from '@phosphor-icons/react'
+import { useMemo, useState } from 'react'
+import { Bank, CaretRight, CheckCircle, CurrencyCircleDollar, MagnifyingGlass, Plus, Receipt, ShieldWarning } from '@phosphor-icons/react'
+import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography, message } from 'antd'
+import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
-import './AdminDashboard.css'
-import './AdminStudents.css'
-import './AdminCourses.css'
-import './AdminInvoices.css'
+import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 
 type InvoiceStatus = 'Chưa thanh toán' | 'Đã thanh toán' | 'Quá hạn' | 'Đã hủy'
-
-type InvoiceRecord = {
-  id: number
-  code: string
-  studentCode: string
-  studentName: string
-  className: string
-  course: string
-  amount: number
-  issuedAt: string
-  dueDate: string
-  status: InvoiceStatus
-  paidAt?: string
-  paymentMethod?: string
-  cancelReason?: string
-}
-
-type AdminInvoicesProps = {
-  onLogout: () => void
-  onNavigate: (page: AdminPage) => void
-  onNavigateHome: () => void
-}
-
-const students = [
-  { code: 'HV-0248', name: 'Nguyễn Khánh Linh', className: 'A2 Giao tiếp', course: 'Tiếng Anh A2', amount: 3200000 },
-  { code: 'HV-0217', name: 'Trần Gia Huy', className: 'B1 Tổng quát', course: 'Tiếng Anh B1', amount: 4200000 },
-  { code: 'HV-0196', name: 'Lê Minh Anh', className: 'IELTS 6.5', course: 'Luyện thi IELTS 6.5', amount: 6800000 },
-  { code: 'HV-0173', name: 'Phạm Quang Duy', className: 'A2 Giao tiếp', course: 'Tiếng Anh A2', amount: 3200000 },
-  { code: 'HV-0151', name: 'Võ Hoàng Nam', className: 'TOPIK I - K05', course: 'Tiếng Hàn TOPIK I', amount: 4900000 },
-  { code: 'HV-0138', name: 'Đặng Thu Trang', className: 'HSK 3 - T04', course: 'Tiếng Trung HSK 3', amount: 4600000 },
-] as const
-
+type InvoiceRecord = { id: number; code: string; studentCode: string; studentName: string; className: string; course: string; amount: number; issuedAt: string; dueDate: string; status: InvoiceStatus; paidAt?: string; paymentMethod?: string; cancelReason?: string }
+type Props = { onLogout: () => void; onNavigate: (page: AdminPage) => void; onNavigateHome: () => void }
+const students = [{ code: 'HV-0248', name: 'Nguyễn Khánh Linh', className: 'A2 Giao tiếp', course: 'Tiếng Anh A2', amount: 3200000 }, { code: 'HV-0217', name: 'Trần Gia Huy', className: 'B1 Tổng quát', course: 'Tiếng Anh B1', amount: 4200000 }, { code: 'HV-0196', name: 'Lê Minh Anh', className: 'IELTS 6.5', course: 'Luyện thi IELTS 6.5', amount: 6800000 }, { code: 'HV-0151', name: 'Võ Hoàng Nam', className: 'TOPIK I - K05', course: 'Tiếng Hàn TOPIK I', amount: 4900000 }, { code: 'HV-0138', name: 'Đặng Thu Trang', className: 'HSK 3 - T04', course: 'Tiếng Trung HSK 3', amount: 4600000 }]
 const initialInvoices: InvoiceRecord[] = [
   { id: 1, code: 'HD-2026-041', studentCode: 'HV-0248', studentName: 'Nguyễn Khánh Linh', className: 'A2 Giao tiếp', course: 'Tiếng Anh A2', amount: 3200000, issuedAt: '2026-08-12', dueDate: '2026-09-25', status: 'Chưa thanh toán' },
   { id: 2, code: 'HD-2026-040', studentCode: 'HV-0217', studentName: 'Trần Gia Huy', className: 'B1 Tổng quát', course: 'Tiếng Anh B1', amount: 4200000, issuedAt: '2026-08-08', dueDate: '2026-09-10', status: 'Đã thanh toán', paidAt: '2026-09-08', paymentMethod: 'Chuyển khoản' },
@@ -59,116 +17,38 @@ const initialInvoices: InvoiceRecord[] = [
   { id: 5, code: 'HD-2026-037', studentCode: 'HV-0151', studentName: 'Võ Hoàng Nam', className: 'TOPIK I - K05', course: 'Tiếng Hàn TOPIK I', amount: 4900000, issuedAt: '2026-07-20', dueDate: '2026-09-20', status: 'Chưa thanh toán' },
   { id: 6, code: 'HD-2026-036', studentCode: 'HV-0138', studentName: 'Đặng Thu Trang', className: 'HSK 3 - T04', course: 'Tiếng Trung HSK 3', amount: 4600000, issuedAt: '2026-07-18', dueDate: '2026-08-20', status: 'Đã hủy', cancelReason: 'Học viên chuyển sang khóa học khác.' },
 ]
+const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}đ`
+const date = (value: string) => new Intl.DateTimeFormat('vi-VN').format(new Date(`${value}T00:00:00`))
+const colors: Record<InvoiceStatus, string> = { 'Chưa thanh toán': 'gold', 'Đã thanh toán': 'green', 'Quá hạn': 'red', 'Đã hủy': 'default' }
 
-const formatMoney = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}đ`
-const formatDate = (value: string) => new Intl.DateTimeFormat('vi-VN').format(new Date(`${value}T00:00:00`))
-
-function AdminInvoices({ onLogout, onNavigate, onNavigateHome }: AdminInvoicesProps) {
+function AdminInvoices({ onLogout, onNavigate, onNavigateHome }: Props) {
   const [invoices, setInvoices] = useState(initialInvoices)
-  const [query, setQuery] = useState('')
-  const [status, setStatus] = useState<'Tất cả' | InvoiceStatus>('Tất cả')
-  const [className, setClassName] = useState('Tất cả')
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [creating, setCreating] = useState(false)
-  const [studentCode, setStudentCode] = useState<string>(students[0].code)
-  const [dueDate, setDueDate] = useState('2026-10-15')
-  const [formError, setFormError] = useState('')
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-
-  const selectedInvoice = invoices.find((invoice) => invoice.id === selectedId) ?? null
-  const selectedStudent = students.find((student) => student.code === studentCode) ?? students[0]
-  const classNames = [...new Set(invoices.map((invoice) => invoice.className))]
-  const filteredInvoices = useMemo(() => {
-    const normalizedQuery = query.trim().toLocaleLowerCase('vi')
-    return invoices.filter((invoice) => {
-      const matchesQuery = !normalizedQuery || [invoice.code, invoice.studentCode, invoice.studentName, invoice.className, invoice.course]
-        .some((value) => value.toLocaleLowerCase('vi').includes(normalizedQuery))
-      return matchesQuery && (status === 'Tất cả' || invoice.status === status) && (className === 'Tất cả' || invoice.className === className)
-    })
-  }, [className, invoices, query, status])
-
-  const collected = invoices.filter((invoice) => invoice.status === 'Đã thanh toán').reduce((total, invoice) => total + invoice.amount, 0)
-  const outstanding = invoices.filter((invoice) => invoice.status === 'Chưa thanh toán' || invoice.status === 'Quá hạn').reduce((total, invoice) => total + invoice.amount, 0)
-  const overdueCount = invoices.filter((invoice) => invoice.status === 'Quá hạn').length
-
-  const openCreate = () => {
-    setCreating(true)
-    setStudentCode(students[0].code)
-    setDueDate('2026-10-15')
-    setFormError('')
+  const [query, setQuery] = useState(''); const [status, setStatus] = useState<'Tất cả' | InvoiceStatus>('Tất cả'); const [className, setClassName] = useState('Tất cả')
+  const [selected, setSelected] = useState<InvoiceRecord | null>(null); const [creating, setCreating] = useState(false)
+  const [form] = Form.useForm<{ studentCode: string; dueDate: string }>(); const [messageApi, contextHolder] = message.useMessage()
+  const [modal, modalContextHolder] = Modal.useModal()
+  const selectedStudentCode = Form.useWatch('studentCode', form)
+  const data = useMemo(() => invoices.filter((item) => (!query.trim() || [item.code, item.studentCode, item.studentName, item.className].some((value) => value.toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi')))) && (status === 'Tất cả' || item.status === status) && (className === 'Tất cả' || item.className === className)), [className, invoices, query, status])
+  const create = ({ studentCode, dueDate }: { studentCode: string; dueDate: string }) => {
+    const student = students.find((item) => item.code === studentCode) ?? students[0]
+    if (invoices.some((item) => item.studentCode === studentCode && item.className === student.className && item.status !== 'Đã hủy')) { messageApi.error('Học viên đã có hóa đơn còn hiệu lực cho lớp này.'); return }
+    const id = Math.max(...invoices.map((item) => item.id)) + 1; const invoice: InvoiceRecord = { id, code: `HD-2026-${String(id + 41).padStart(3, '0')}`, studentCode, studentName: student.name, className: student.className, course: student.course, amount: student.amount, issuedAt: new Date().toISOString().slice(0, 10), dueDate, status: 'Chưa thanh toán' }
+    setInvoices((current) => [invoice, ...current]); setCreating(false); messageApi.success('Đã tạo hóa đơn.')
   }
-
-  const createInvoice = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (!dueDate) {
-      setFormError('Vui lòng chọn hạn thanh toán.')
-      return
-    }
-    if (invoices.some((invoice) => invoice.studentCode === studentCode && invoice.className === selectedStudent.className && invoice.status !== 'Đã hủy')) {
-      setFormError('Học viên đã có hóa đơn còn hiệu lực cho lớp này.')
-      return
-    }
-    const id = Math.max(0, ...invoices.map((invoice) => invoice.id)) + 1
-    const nextInvoice: InvoiceRecord = {
-      id,
-      code: `HD-2026-${String(id + 41).padStart(3, '0')}`,
-      studentCode: selectedStudent.code,
-      studentName: selectedStudent.name,
-      className: selectedStudent.className,
-      course: selectedStudent.course,
-      amount: selectedStudent.amount,
-      issuedAt: new Date().toISOString().slice(0, 10),
-      dueDate,
-      status: 'Chưa thanh toán',
-    }
-    setInvoices((current) => [nextInvoice, ...current])
-    setFeedback({ type: 'success', message: `Đã tạo hóa đơn ${nextInvoice.code} cho ${nextInvoice.studentName}.` })
-    setCreating(false)
-  }
-
-  const confirmPayment = (invoice: InvoiceRecord) => {
-    if (invoice.status === 'Đã thanh toán' || invoice.status === 'Đã hủy') return
-    if (!window.confirm(`Xác nhận đã nhận ${formatMoney(invoice.amount)} từ ${invoice.studentName}?`)) return
-    const paidAt = new Date().toISOString().slice(0, 10)
-    setInvoices((current) => current.map((item) => item.id === invoice.id ? { ...item, status: 'Đã thanh toán', paidAt, paymentMethod: 'Chuyển khoản' } : item))
-    setFeedback({ type: 'success', message: `Hóa đơn ${invoice.code} đã thanh toán. Quyền dự thi được cập nhật theo điều kiện học vụ.` })
-  }
-
-  const cancelInvoice = (invoice: InvoiceRecord) => {
-    if (invoice.status === 'Đã thanh toán') {
-      setFeedback({ type: 'error', message: 'Không thể hủy hóa đơn đã thanh toán. Cần xử lý hoàn tiền thủ công trước.' })
-      return
-    }
-    if (invoice.status === 'Đã hủy') return
-    const reason = window.prompt(`Nhập lý do hủy hóa đơn ${invoice.code}:`)
-    if (reason === null) return
-    if (!reason.trim()) {
-      setFeedback({ type: 'error', message: 'Vui lòng nhập lý do hủy hóa đơn.' })
-      return
-    }
-    setInvoices((current) => current.map((item) => item.id === invoice.id ? { ...item, status: 'Đã hủy', cancelReason: reason.trim() } : item))
-    setFeedback({ type: 'success', message: `Đã hủy hóa đơn ${invoice.code} và lưu lý do.` })
-  }
-
-  return (
-    <AdminLayout activePage="invoices" mainId="invoice-management" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-      <section className="students-heading" aria-labelledby="invoices-title"><div><span className="section-kicker">Tài chính học vụ</span><h1 id="invoices-title">Quản lý học phí</h1><p>Theo dõi hóa đơn, công nợ và điều kiện dự thi của học viên.</p></div><button className="course-add-button" type="button" onClick={openCreate}><Plus aria-hidden="true" weight="bold" />Tạo hóa đơn</button></section>
-
-      <section className="student-summary" aria-label="Tổng quan học phí minh họa">
-        <article><Bank aria-hidden="true" weight="duotone" /><div><span>Đã thu</span><strong>{formatMoney(collected).replace('đ', '')}</strong><p>VNĐ đã xác nhận thanh toán</p></div></article>
-        <article><CurrencyCircleDollar aria-hidden="true" weight="duotone" /><div><span>Công nợ</span><strong>{formatMoney(outstanding).replace('đ', '')}</strong><p>VNĐ chưa hoàn tất</p></div></article>
-        <article><ShieldWarning aria-hidden="true" weight="duotone" /><div><span>Hóa đơn quá hạn</span><strong>{String(overdueCount).padStart(2, '0')}</strong><p>Tạm khóa quyền dự thi</p></div></article>
-      </section>
-
-      {feedback && <div className={`course-feedback ${feedback.type}`} role={feedback.type === 'error' ? 'alert' : 'status'}><span>{feedback.message}</span><button type="button" onClick={() => setFeedback(null)} aria-label="Đóng thông báo"><X aria-hidden="true" /></button></div>}
-
-      <section className="students-panel" aria-labelledby="invoice-list-title"><div className="students-panel-head"><div><h2 id="invoice-list-title">Danh sách hóa đơn</h2><p>Công nợ được đồng bộ với điều kiện dự thi và cấp chứng chỉ.</p></div><div className="student-filters invoice-filters"><label className="student-search"><span className="sr-only">Tìm kiếm hóa đơn</span><MagnifyingGlass aria-hidden="true" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Mã, học viên hoặc lớp" /></label><label><span className="sr-only">Lọc theo trạng thái</span><select value={status} onChange={(event) => setStatus(event.target.value as 'Tất cả' | InvoiceStatus)}><option>Tất cả</option><option>Chưa thanh toán</option><option>Đã thanh toán</option><option>Quá hạn</option><option>Đã hủy</option></select></label><label><span className="sr-only">Lọc theo lớp học</span><select value={className} onChange={(event) => setClassName(event.target.value)}><option>Tất cả</option>{classNames.map((item) => <option key={item}>{item}</option>)}</select></label></div></div><p className="student-result-count" aria-live="polite">Hiển thị {filteredInvoices.length} hóa đơn</p><div className="student-table-wrap"><table className="invoice-table"><thead><tr><th>Hóa đơn</th><th>Học viên</th><th>Lớp học</th><th>Số tiền</th><th>Hạn thanh toán</th><th>Trạng thái</th><th><span className="sr-only">Thao tác</span></th></tr></thead><tbody>{filteredInvoices.map((invoice) => <tr key={invoice.id}><td><strong>{invoice.code}</strong><br /><small>{formatDate(invoice.issuedAt)}</small></td><td><div className="student-identity"><span aria-hidden="true">{invoice.studentName.split(' ').slice(-2).map((part) => part[0]).join('')}</span><div><strong>{invoice.studentName}</strong><small>{invoice.studentCode}</small></div></div></td><td>{invoice.className}</td><td className="course-tuition">{formatMoney(invoice.amount)}</td><td>{formatDate(invoice.dueDate)}</td><td><span className={`invoice-status ${invoice.status === 'Đã thanh toán' ? 'paid' : invoice.status === 'Quá hạn' ? 'overdue' : invoice.status === 'Đã hủy' ? 'cancelled' : 'pending'}`}>{invoice.status}</span></td><td><button type="button" onClick={() => setSelectedId(invoice.id)} aria-label={`Xem hóa đơn ${invoice.code}`}><CaretRight aria-hidden="true" weight="bold" /></button></td></tr>)}</tbody></table>{filteredInvoices.length === 0 && <div className="student-empty"><MagnifyingGlass aria-hidden="true" /><strong>Không tìm thấy hóa đơn phù hợp</strong><p>Thử thay đổi từ khóa hoặc bộ lọc.</p></div>}</div></section>
-
-      {selectedInvoice && <><button className="student-drawer-backdrop" type="button" onClick={() => setSelectedId(null)} aria-label="Đóng hóa đơn" /><aside className="student-drawer" role="dialog" aria-modal="true" aria-labelledby="invoice-drawer-title"><div className="student-drawer-head"><span>Chi tiết hóa đơn</span><button type="button" onClick={() => setSelectedId(null)} aria-label="Đóng hóa đơn"><X aria-hidden="true" /></button></div><div className="invoice-drawer-heading"><Receipt aria-hidden="true" weight="duotone" /><div><h2 id="invoice-drawer-title">{selectedInvoice.code}</h2><p>{selectedInvoice.studentName} · {selectedInvoice.studentCode}</p></div></div><div className="invoice-total"><span>Tổng học phí</span><strong>{formatMoney(selectedInvoice.amount)}</strong></div><dl className="student-details"><div><dt><Student aria-hidden="true" />Khóa học</dt><dd>{selectedInvoice.course}</dd></div><div><dt><CalendarBlank aria-hidden="true" />Ngày tạo</dt><dd>{formatDate(selectedInvoice.issuedAt)}</dd></div><div><dt><CalendarBlank aria-hidden="true" />Hạn thanh toán</dt><dd>{formatDate(selectedInvoice.dueDate)}</dd></div>{selectedInvoice.paidAt && <div><dt><CheckCircle aria-hidden="true" />Đã thanh toán</dt><dd>{formatDate(selectedInvoice.paidAt)} · {selectedInvoice.paymentMethod}</dd></div>}{selectedInvoice.cancelReason && <div><dt><X aria-hidden="true" />Lý do hủy</dt><dd>{selectedInvoice.cancelReason}</dd></div>}</dl><div className={`invoice-access ${selectedInvoice.status === 'Đã thanh toán' ? 'is-open' : ''}`}><ShieldWarning aria-hidden="true" weight="fill" /><div><span>Điều kiện dự thi</span><strong>{selectedInvoice.status === 'Đã thanh toán' ? 'Đã mở khóa theo tài chính' : 'Tạm khóa do học phí'}</strong></div></div><div className="invoice-actions">{(selectedInvoice.status === 'Chưa thanh toán' || selectedInvoice.status === 'Quá hạn') && <button className="is-primary" type="button" onClick={() => confirmPayment(selectedInvoice)}><CheckCircle aria-hidden="true" />Xác nhận thanh toán</button>}<button type="button" onClick={() => cancelInvoice(selectedInvoice)} disabled={selectedInvoice.status === 'Đã hủy'}><X aria-hidden="true" />Hủy hóa đơn</button></div></aside></>}
-
-      {creating && <><button className="student-drawer-backdrop" type="button" onClick={() => setCreating(false)} aria-label="Đóng biểu mẫu hóa đơn" /><aside className="student-drawer course-drawer" role="dialog" aria-modal="true" aria-labelledby="invoice-form-title"><div className="student-drawer-head"><span>Hóa đơn mới</span><button type="button" onClick={() => setCreating(false)} aria-label="Đóng biểu mẫu"><X aria-hidden="true" /></button></div><div className="course-form-heading"><Receipt aria-hidden="true" weight="duotone" /><div><h2 id="invoice-form-title">Tạo hóa đơn</h2><p>Học phí được lấy tự động từ khóa học đã ghi danh.</p></div></div><form className="course-form" onSubmit={createInvoice} noValidate><div className="course-form-grid"><label className="course-field-wide"><span>Học viên *</span><select value={studentCode} onChange={(event) => { setStudentCode(event.target.value); setFormError('') }}>{students.map((student) => <option key={student.code} value={student.code}>{student.name} · {student.code}</option>)}</select></label><label className="course-field-wide"><span>Khóa học</span><input value={`${selectedStudent.course} · ${selectedStudent.className}`} readOnly /></label><label className="course-field-wide"><span>Học phí</span><div className="course-money-input"><CurrencyCircleDollar aria-hidden="true" /><input value={formatMoney(selectedStudent.amount)} readOnly /></div></label><label className="course-field-wide"><span>Hạn thanh toán *</span><input type="date" value={dueDate} onChange={(event) => { setDueDate(event.target.value); setFormError('') }} aria-invalid={Boolean(formError)} />{formError && <small>{formError}</small>}</label></div><div className="course-form-actions"><button type="button" onClick={() => setCreating(false)}>Hủy</button><button type="submit">Tạo hóa đơn</button></div></form></aside></>}
-    </AdminLayout>
-  )
+  const pay = (invoice: InvoiceRecord) => modal.confirm({ title: 'Xác nhận thanh toán?', content: `${invoice.studentName} · ${money(invoice.amount)}`, okText: 'Xác nhận', onOk: () => { const next = { ...invoice, status: 'Đã thanh toán' as const, paidAt: new Date().toISOString().slice(0, 10), paymentMethod: 'Chuyển khoản' }; setInvoices((current) => current.map((item) => item.id === invoice.id ? next : item)); setSelected(next); messageApi.success('Đã xác nhận thanh toán.') } })
+  const cancel = (invoice: InvoiceRecord) => { if (invoice.status === 'Đã thanh toán') { messageApi.error('Không thể hủy hóa đơn đã thanh toán.'); return }; modal.confirm({ title: 'Hủy hóa đơn?', content: invoice.code, okButtonProps: { danger: true }, onOk: () => { const next = { ...invoice, status: 'Đã hủy' as const, cancelReason: 'Hủy theo yêu cầu của quản trị viên.' }; setInvoices((current) => current.map((item) => item.id === invoice.id ? next : item)); setSelected(next); messageApi.success('Đã hủy hóa đơn.') } }) }
+  const columns: TableProps<InvoiceRecord>['columns'] = [
+    { title: 'Hóa đơn', key: 'invoice', render: (_, item) => <div><Typography.Text strong>{item.code}</Typography.Text><br /><Typography.Text type="secondary">{date(item.issuedAt)}</Typography.Text></div> },
+    { title: 'Học viên', key: 'student', render: (_, item) => <div className="admin-entity"><Avatar shape="square">{item.studentName.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div><strong>{item.studentName}</strong><small>{item.studentCode}</small></div></div> },
+    { title: 'Lớp học', dataIndex: 'className' }, { title: 'Số tiền', dataIndex: 'amount', render: (value) => <Typography.Text strong>{money(value)}</Typography.Text> }, { title: 'Hạn thanh toán', dataIndex: 'dueDate', render: date },
+    { title: 'Trạng thái', dataIndex: 'status', render: (value: InvoiceStatus) => <Tag color={colors[value]}>{value}</Tag> }, { title: '', key: 'action', width: 52, render: (_, item) => <Button icon={<CaretRight />} onClick={() => setSelected(item)} aria-label={`Xem hóa đơn ${item.code}`} /> },
+  ]
+  return <AdminLayout activePage="invoices" mainId="invoice-management" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
+    {contextHolder}{modalContextHolder}<AdminPageHeader kicker="Tài chính học vụ" title="Quản lý học phí" description="Theo dõi hóa đơn, công nợ và điều kiện dự thi của học viên." actions={<Button type="primary" icon={<Plus />} onClick={() => { setCreating(true); form.setFieldsValue({ studentCode: students[0].code, dueDate: '2026-10-15' }) }}>Tạo hóa đơn</Button>} />
+    <AdminSummary items={[{ label: 'Đã thu', value: money(invoices.filter((item) => item.status === 'Đã thanh toán').reduce((sum, item) => sum + item.amount, 0)).replace('đ', ''), detail: 'VNĐ đã xác nhận thanh toán', icon: <Bank weight="duotone" />, tone: 'success' }, { label: 'Công nợ', value: money(invoices.filter((item) => ['Chưa thanh toán', 'Quá hạn'].includes(item.status)).reduce((sum, item) => sum + item.amount, 0)).replace('đ', ''), detail: 'VNĐ chưa hoàn tất', icon: <CurrencyCircleDollar weight="duotone" /> }, { label: 'Hóa đơn quá hạn', value: invoices.filter((item) => item.status === 'Quá hạn').length, detail: 'Tạm khóa quyền dự thi', icon: <ShieldWarning weight="duotone" />, tone: 'danger' }]} />
+    <Card className="admin-table-card" title="Danh sách hóa đơn" extra={<Space wrap><Input allowClear prefix={<MagnifyingGlass />} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Mã, học viên hoặc lớp" /><Select value={status} onChange={setStatus} options={['Tất cả', 'Chưa thanh toán', 'Đã thanh toán', 'Quá hạn', 'Đã hủy'].map((value) => ({ value, label: value }))} /><Select value={className} onChange={setClassName} options={['Tất cả', ...new Set(invoices.map((item) => item.className))].map((value) => ({ value, label: value }))} /></Space>}><Table rowKey="id" columns={columns} dataSource={data} scroll={{ x: 980 }} pagination={{ pageSize: 6, showTotal: (total) => `${total} hóa đơn` }} /></Card>
+    <Drawer size={450} title="Chi tiết hóa đơn" open={Boolean(selected)} onClose={() => setSelected(null)}>{selected && <><Flex align="center" gap={12}><Receipt size={36} /><div><Typography.Title className="admin-drawer-title" level={3}>{selected.code}</Typography.Title><Typography.Text type="secondary">{selected.studentName} · {selected.studentCode}</Typography.Text></div></Flex><Card style={{ marginTop: 22, background: '#e8f1e8' }}><Flex justify="space-between"><Typography.Text>Tổng học phí</Typography.Text><Typography.Title level={3} style={{ margin: 0 }}>{money(selected.amount)}</Typography.Title></Flex></Card><Descriptions bordered column={1} size="small" style={{ marginTop: 18 }} items={[{ key: 'course', label: 'Khóa học', children: selected.course }, { key: 'issued', label: 'Ngày tạo', children: date(selected.issuedAt) }, { key: 'due', label: 'Hạn thanh toán', children: date(selected.dueDate) }, ...(selected.paidAt ? [{ key: 'paid', label: 'Đã thanh toán', children: `${date(selected.paidAt)} · ${selected.paymentMethod}` }] : []), ...(selected.cancelReason ? [{ key: 'cancel', label: 'Lý do hủy', children: selected.cancelReason }] : [])]} /><Alert style={{ marginTop: 18 }} type={selected.status === 'Đã thanh toán' ? 'success' : 'warning'} showIcon title={selected.status === 'Đã thanh toán' ? 'Đã mở khóa điều kiện tài chính' : 'Tạm khóa do học phí'} /><Space orientation="vertical" style={{ width: '100%', marginTop: 18 }}>{['Chưa thanh toán', 'Quá hạn'].includes(selected.status) && <Button block type="primary" icon={<CheckCircle />} onClick={() => pay(selected)}>Xác nhận thanh toán</Button>}<Button block danger onClick={() => cancel(selected)} disabled={selected.status === 'Đã hủy'}>Hủy hóa đơn</Button></Space></>}</Drawer>
+    <Modal title="Tạo hóa đơn" open={creating} onCancel={() => setCreating(false)} onOk={() => form.submit()} okText="Tạo hóa đơn" destroyOnHidden><Form form={form} layout="vertical" onFinish={create} style={{ marginTop: 20 }}><Form.Item name="studentCode" label="Học viên" rules={[{ required: true }]}><Select options={students.map((item) => ({ value: item.code, label: `${item.name} · ${item.code}` }))} /></Form.Item><Form.Item name="dueDate" label="Hạn thanh toán" rules={[{ required: true }]}><Input type="date" /></Form.Item><Form.Item label="Học phí"><InputNumber readOnly value={students.find((item) => item.code === selectedStudentCode)?.amount ?? students[0].amount} formatter={(value) => money(Number(value))} style={{ width: '100%' }} /></Form.Item></Form></Modal>
+  </AdminLayout>
 }
-
 export default AdminInvoices

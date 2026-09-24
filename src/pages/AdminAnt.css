@@ -1,0 +1,33 @@
+.ant-admin-shell { min-height: 100dvh; color: #12332f; }
+.ant-admin-sider { position: sticky !important; top: 0; height: 100dvh; overflow: hidden; }
+.ant-admin-brand { display: flex; width: 100%; height: 92px; align-items: flex-start; justify-content: center; flex-direction: column; padding: 0 24px; border: 0; color: #eff6f1; background: transparent; cursor: pointer; text-align: left; }
+.ant-admin-brand strong { font-family: var(--display); font-size: 1.65rem; font-weight: 600; line-height: 1; }
+.ant-admin-brand span { margin-top: 6px; color: #91aaa1; font-size: 0.59rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; }
+.ant-admin-nav { height: calc(100dvh - 184px); overflow-y: auto; padding: 12px; }
+.ant-admin-nav .ant-menu { border-inline-end: 0 !important; }
+.ant-admin-nav .ant-menu-item { height: 44px; margin-block: 4px; font-size: 0.75rem; font-weight: 700; }
+.ant-admin-nav .ant-menu-item svg { width: 19px; height: 19px; }
+.ant-admin-account { display: grid; height: 92px; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 18px; border-top: 1px solid rgba(255,255,255,0.12); color: #eff6f1; }
+.ant-admin-account > div { display: flex; min-width: 0; flex-direction: column; }
+.ant-admin-account strong { font-size: 0.7rem; }
+.ant-admin-account span { margin-top: 4px; color: #8eaaa0; font-size: 0.58rem; }
+.ant-admin-account .ant-btn { color: #a9c0b8; }
+.ant-admin-header { position: sticky; top: 0; z-index: 20; height: 72px; padding-inline: clamp(18px, 3.4vw, 48px); border-bottom: 1px solid #e1e8e2; line-height: normal; }
+.ant-admin-date { display: flex; align-items: center; gap: 12px; color: #64766f; font-size: 0.68rem; text-transform: capitalize; }
+.ant-admin-date > span { padding: 5px 8px; border: 1px solid #dbe3dc; border-radius: 7px; color: #12332f; background: #f7f9f7; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.ant-admin-role { font-size: 0.7rem; }
+.ant-admin-content { padding: 40px clamp(18px, 3.4vw, 48px) 64px; }
+.ant-admin-content > main { width: min(1420px, 100%); margin: 0 auto; }
+.ant-admin-notifications { width: 100%; }
+.ant-admin-notifications > .ant-space-item { padding: 16px 0; border-bottom: 1px solid #edf0ed; }
+.ant-admin-notifications svg { width: 21px; height: 21px; flex: 0 0 auto; color: #d44735; }
+.ant-admin-notifications .ant-typography { display: block; margin: 0; font-size: 0.7rem; }
+.ant-admin-notifications .ant-typography-secondary { margin-top: 6px; font-size: 0.64rem; line-height: 1.5; }
+.ant-admin-menu-drawer .ant-admin-brand { height: 92px; }
+.ant-admin-menu-drawer .ant-admin-nav { height: calc(100dvh - 184px); }
+
+@media (max-width: 600px) {
+  .ant-admin-header { height: 64px; padding-inline: 12px; }
+  .ant-admin-date > span, .ant-admin-role { display: none; }
+  .ant-admin-content { padding: 28px 12px 48px; }
+}
