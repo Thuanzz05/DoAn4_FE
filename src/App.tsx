@@ -28,12 +28,13 @@ import TeacherDashboard from './pages/TeacherDashboard'
 import TeacherSchedule from './pages/TeacherSchedule'
 import TeacherAttendance from './pages/TeacherAttendance'
 import TeacherGrades from './pages/TeacherGrades'
+import StudentDashboard from './pages/StudentDashboard'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades'
+type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -52,6 +53,7 @@ const getCurrentPage = (): Page => {
   if (path === '/teacher/schedule') return 'teacher-schedule'
   if (path === '/teacher/attendance') return 'teacher-attendance'
   if (path === '/teacher/grades') return 'teacher-grades'
+  if (path === '/student') return 'student'
   return 'home'
 }
 
@@ -130,6 +132,8 @@ function App() {
                                 ? 'Điểm danh lớp học | Trung tâm'
                                 : page === 'teacher-grades'
                                   ? 'Nhập điểm thi | Trung tâm'
+                                  : page === 'student'
+                                    ? 'Tổng quan học viên | Trung tâm'
           : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
@@ -164,6 +168,8 @@ function App() {
                                 ? '/teacher/attendance'
                                 : nextPage === 'teacher-grades'
                                   ? '/teacher/grades'
+                                  : nextPage === 'student'
+                                    ? '/student'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
@@ -228,6 +234,10 @@ function App() {
 
   if (page === 'teacher-grades') {
     return <TeacherGrades onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'student') {
+    return <StudentDashboard onLogout={() => navigate('login')} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')

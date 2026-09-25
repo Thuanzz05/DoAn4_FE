@@ -1,0 +1,50 @@
+.student-dashboard-alert { margin-top: 16px; }
+.student-dashboard-grid { margin-top: 16px; }
+.student-dashboard-grid > .ant-col > .ant-card { height: 100%; border-color: #dbe3dc; }
+.student-dashboard-grid .ant-card-head-title { font-family: var(--display); font-size: 1.35rem; font-weight: 600; }
+.student-next-class { display: grid; grid-template-columns: 100px 1fr; gap: 22px; align-items: center; padding: 10px 0 20px; }
+.student-class-date { display: flex; min-height: 118px; align-items: center; justify-content: center; flex-direction: column; border-radius: 12px; color: #eff6f1; background: #12332f; }
+.student-class-date span,
+.student-class-date small { font-size: 0.56rem; font-weight: 700; text-transform: uppercase; }
+.student-class-date strong { margin: 5px 0; font-family: var(--display); font-size: 2.5rem; line-height: 1; }
+.student-class-info h3.ant-typography { margin: 10px 0 14px; font-family: var(--display); font-size: 1.65rem; font-weight: 600; }
+.student-class-info .ant-space span { display: flex; align-items: center; gap: 5px; color: #60726b; font-size: 0.61rem; }
+.student-class-info svg { width: 16px; height: 16px; color: #397359; }
+.student-class-notice { padding: 12px 14px; border-radius: 9px; color: #91661e; background: #fff8e8; }
+.student-class-notice svg { width: 18px; height: 18px; }
+.student-class-notice .ant-typography { font-size: 0.62rem; }
+.student-course-progress { margin-top: 6px; }
+.student-course-progress .ant-typography { font-size: 0.68rem; }
+.student-course-progress .ant-progress { margin-top: 14px; }
+.student-course-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 22px 0; }
+.student-course-meta span { display: flex; flex-direction: column; padding: 14px; border-radius: 9px; background: #f4f7f4; }
+.student-course-meta small { color: #778781; font-size: 0.56rem; }
+.student-course-meta strong { margin-top: 6px; font-size: 0.66rem; }
+.student-skill-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.student-skill-grid > div { padding: 14px; border: 1px solid #e1e8e2; border-radius: 10px; }
+.student-skill-grid span { display: block; color: #687a73; font-size: 0.58rem; font-weight: 700; text-transform: uppercase; }
+.student-skill-grid strong { display: block; margin: 8px 0; font-family: var(--display); font-size: 1.7rem; }
+.student-score-total { margin-top: 18px; padding-top: 16px; border-top: 1px solid #edf0ed; }
+.student-score-total > span { display: flex; align-items: baseline; gap: 10px; }
+.student-score-total small { color: #687a73; font-size: 0.6rem; }
+.student-score-total strong { font-family: var(--display); font-size: 1.4rem; }
+.student-status-row { display: grid; width: 100%; min-height: 82px; grid-template-columns: auto 1fr auto auto; gap: 12px; align-items: center; padding: 12px 0; border: 0; border-bottom: 1px solid #edf0ed; color: #12332f; background: transparent; cursor: pointer; text-align: left; }
+.student-status-row:last-child { border-bottom: 0; }
+.student-status-row > span:nth-child(2) { display: flex; flex-direction: column; }
+.student-status-row strong { font-size: 0.66rem; }
+.student-status-row small { margin-top: 5px; color: #74857e; font-size: 0.57rem; }
+.student-status-row b { font-size: 0.66rem; white-space: nowrap; }
+.student-status-row > svg { width: 16px; height: 16px; }
+.student-status-icon { display: grid; width: 40px; height: 40px; place-items: center; border-radius: 10px; color: #12332f; background: #e6eee7; }
+.student-status-icon.warning { color: #9a691c; background: #fff4dc; }
+.student-status-icon svg { width: 22px; height: 22px; }
+
+@media (max-width: 600px) {
+  .student-next-class { grid-template-columns: 74px 1fr; gap: 14px; }
+  .student-class-date { min-height: 104px; }
+  .student-skill-grid { grid-template-columns: 1fr 1fr; }
+  .student-status-row { grid-template-columns: auto 1fr auto; }
+  .student-status-row b,
+  .student-status-row .ant-tag { grid-column: 2; }
+  .student-status-row > svg { grid-column: 3; grid-row: 1; }
+}
