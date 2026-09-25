@@ -50,7 +50,7 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
         { label: 'Công nợ', value: '2,4 tr', detail: 'Hạn thanh toán 28/09', icon: <Receipt weight="duotone" />, tone: 'danger' },
       ]} />
 
-      <Alert className="student-dashboard-alert" type="warning" showIcon title="Học phí sắp đến hạn" description="Hoàn tất hóa đơn HP-2026-0918 trước ngày 28/09 để không ảnh hưởng điều kiện dự thi." action={<Button size="small" onClick={() => comingSoon('Công nợ học phí')}>Xem hóa đơn</Button>} />
+      <Alert className="student-dashboard-alert" type="warning" showIcon title="Học phí sắp đến hạn" description="Hoàn tất hóa đơn HP-2026-0918 trước ngày 28/09 để không ảnh hưởng điều kiện dự thi." action={<Button size="small" onClick={() => onNavigate('student-invoices')}>Xem hóa đơn</Button>} />
 
       <Row className="student-dashboard-grid" gutter={[16, 16]}>
         <Col xs={24} xl={14}>
@@ -86,8 +86,8 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
 
         <Col xs={24} lg={12}>
           <Card title="Học phí và chứng chỉ">
-            <button className="student-status-row" type="button" onClick={() => comingSoon('Chi tiết hóa đơn')}><span className="student-status-icon warning"><Receipt weight="duotone" /></span><span><strong>Học phí còn lại</strong><small>HP-2026-0918 · Hạn 28/09</small></span><b>2.400.000đ</b><ArrowRight /></button>
-            <button className="student-status-row" type="button" onClick={() => comingSoon('Kết quả xét chứng chỉ')}><span className="student-status-icon"><Certificate weight="duotone" /></span><span><strong>Chứng chỉ cuối khóa</strong><small>Được xét sau khi hoàn thành khóa học</small></span><Tag>Chưa xét</Tag><ArrowRight /></button>
+            <button className="student-status-row" type="button" onClick={() => onNavigate('student-invoices')}><span className="student-status-icon warning"><Receipt weight="duotone" /></span><span><strong>Học phí còn lại</strong><small>HP-2026-0918 · Hạn 28/09</small></span><b>2.400.000đ</b><ArrowRight /></button>
+            <button className="student-status-row" type="button" onClick={() => onNavigate('student-certificates')}><span className="student-status-icon"><Certificate weight="duotone" /></span><span><strong>Chứng chỉ cuối khóa</strong><small>Được xét sau khi hoàn thành khóa học</small></span><Tag>Chưa xét</Tag><ArrowRight /></button>
           </Card>
         </Col>
       </Row>

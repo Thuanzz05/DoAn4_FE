@@ -1,0 +1,20 @@
+.student-account-alert { margin-top: 20px; }
+.student-account-card { margin-top: 18px; border-color: #dbe3dc; }
+.student-account-card .ant-tabs-nav { margin-bottom: 18px; }
+.student-account-card .ant-tabs-tab { font-size: .68rem; font-weight: 700; }
+.student-account-drawer-heading { margin-bottom: 22px; color: #12332f; }
+.student-account-drawer-heading h3.ant-typography { margin: 0 0 6px; font-family: var(--display); }
+.student-account-amount { margin-bottom: 18px; background: #e8f1e8; }
+.student-account-amount .ant-card-body { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.student-account-amount strong { color: #12332f; font-family: var(--display); font-size: 1.4rem; white-space: nowrap; }
+.student-account-drawer-note { margin-top: 18px; }
+.student-certificate-list { display: grid; gap: 14px; }
+.student-certificate-item { border-color: #dbe3dc; background: #f8faf8; }
+.student-certificate-item h3.ant-typography { margin: 9px 0 3px; font-family: var(--display); font-size: 1.25rem; }
+.student-certificate-icon { display: grid; width: 58px; height: 58px; flex: 0 0 auto; place-items: center; border-radius: 12px; color: #12332f; background: #e4eee5; }
+.student-certificate-pending { display: grid; justify-items: start; gap: 18px; }
+.student-certificate-actions { width: 100%; margin-top: 18px; }
+@media (max-width: 600px) {
+  .student-account-card > .ant-card-body { padding: 12px; }
+  .student-account-amount .ant-card-body { align-items: flex-start; flex-direction: column; }
+}

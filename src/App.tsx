@@ -31,12 +31,14 @@ import TeacherGrades from './pages/TeacherGrades'
 import StudentDashboard from './pages/StudentDashboard'
 import StudentSchedule from './pages/StudentSchedule'
 import StudentResults from './pages/StudentResults'
+import StudentInvoices from './pages/StudentInvoices'
+import StudentCertificates from './pages/StudentCertificates'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student' | 'student-schedule' | 'student-results'
+type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student' | 'student-schedule' | 'student-results' | 'student-invoices' | 'student-certificates'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -58,6 +60,8 @@ const getCurrentPage = (): Page => {
   if (path === '/student') return 'student'
   if (path === '/student/schedule') return 'student-schedule'
   if (path === '/student/results') return 'student-results'
+  if (path === '/student/invoices') return 'student-invoices'
+  if (path === '/student/certificates') return 'student-certificates'
   return 'home'
 }
 
@@ -142,6 +146,10 @@ function App() {
                                       ? 'Lịch học cá nhân | Trung tâm'
                                       : page === 'student-results'
                                         ? 'Điểm số và chuyên cần | Trung tâm'
+                                        : page === 'student-invoices'
+                                          ? 'Học phí của tôi | Trung tâm'
+                                          : page === 'student-certificates'
+                                            ? 'Chứng chỉ của tôi | Trung tâm'
           : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
@@ -182,6 +190,10 @@ function App() {
                                       ? '/student/schedule'
                                       : nextPage === 'student-results'
                                         ? '/student/results'
+                                        : nextPage === 'student-invoices'
+                                          ? '/student/invoices'
+                                          : nextPage === 'student-certificates'
+                                            ? '/student/certificates'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
@@ -258,6 +270,14 @@ function App() {
 
   if (page === 'student-results') {
     return <StudentResults onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'student-invoices') {
+    return <StudentInvoices onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'student-certificates') {
+    return <StudentCertificates onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')
