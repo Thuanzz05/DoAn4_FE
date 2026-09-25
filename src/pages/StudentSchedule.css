@@ -1,0 +1,46 @@
+.student-schedule-alert { margin-top: 24px; }
+.student-schedule-card { margin-top: 16px; border-color: #dbe3dc; }
+.student-schedule-toolbar h3.ant-typography { margin: 4px 0 0; font-family: var(--display); font-size: 1.5rem; font-weight: 600; text-transform: capitalize; }
+.student-schedule-toolbar .ant-typography-secondary { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; }
+.student-week-scroll,
+.student-month-scroll { overflow-x: auto; padding-bottom: 8px; }
+.student-week-grid { display: grid; min-width: 840px; grid-template-columns: repeat(7, minmax(118px, 1fr)); border: 1px solid #e2e8e3; border-radius: 10px; background: #f8faf8; }
+.student-week-grid > section { min-height: 390px; border-right: 1px solid #e2e8e3; }
+.student-week-grid > section:last-child { border-right: 0; }
+.student-week-grid section > header { display: flex; height: 70px; align-items: center; justify-content: center; flex-direction: column; border-bottom: 1px solid #e2e8e3; color: #60726c; text-transform: capitalize; }
+.student-week-grid section > header span { font-size: 0.58rem; font-weight: 700; }
+.student-week-grid section > header strong { margin-top: 4px; font-family: var(--display); font-size: 1.35rem; }
+.student-week-grid section.is-today > header { color: #fff; background: #12332f; }
+.student-day-sessions { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+.student-schedule-session { display: flex; min-height: 138px; align-items: flex-start; flex-direction: column; padding: 12px; border: 1px solid #dbe5dc; border-radius: 9px; color: #12332f; background: #fff; cursor: pointer; text-align: left; }
+.student-schedule-session:hover { border-color: #7aa08c; }
+.student-schedule-session.changed { border-color: #efc475; background: #fffaf0; }
+.student-schedule-session span,
+.student-schedule-session small { display: flex; align-items: center; gap: 4px; color: #6c7d76; font-size: 0.55rem; }
+.student-schedule-session span svg,
+.student-schedule-session small svg { width: 13px; height: 13px; }
+.student-schedule-session strong { margin: 10px 0 6px; font-size: 0.65rem; line-height: 1.35; }
+.student-schedule-session .ant-tag { margin-top: auto; font-size: 0.52rem; }
+.student-no-session { padding: 20px 4px; color: #a0aca7; font-size: 0.55rem; text-align: center; }
+.student-month-calendar { display: grid; min-width: 840px; grid-template-columns: repeat(7, 1fr); border-top: 1px solid #e2e8e3; border-left: 1px solid #e2e8e3; }
+.student-month-weekday { padding: 11px; border-right: 1px solid #e2e8e3; border-bottom: 1px solid #e2e8e3; color: #6b7c76; background: #f4f7f4; font-size: 0.57rem; text-align: center; }
+.student-month-calendar > section { min-height: 116px; padding: 9px; border-right: 1px solid #e2e8e3; border-bottom: 1px solid #e2e8e3; }
+.student-month-calendar > section > span { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; font-size: 0.61rem; font-weight: 700; }
+.student-month-calendar > section.is-today > span { color: #fff; background: #12332f; }
+.student-month-calendar > section.outside { color: #b7c0bc; background: #fafbfa; }
+.student-month-calendar section button { display: flex; width: 100%; gap: 5px; margin-top: 8px; padding: 6px; border: 0; border-radius: 6px; color: #12332f; background: #e6eee7; cursor: pointer; font-size: 0.5rem; text-align: left; }
+.student-month-calendar section button i { width: 6px; height: 6px; flex: 0 0 auto; margin-top: 3px; border-radius: 50%; background: #397359; }
+.student-schedule-drawer-title { margin: 12px 0 20px !important; font-family: var(--display); }
+.student-schedule-meta { width: 100%; }
+.student-schedule-meta span { display: flex; align-items: center; gap: 8px; color: #52655d; font-size: 0.66rem; text-transform: capitalize; }
+.student-schedule-meta svg { width: 18px; height: 18px; color: #397359; }
+.student-course-detail { margin-top: 20px; background: #f4f7f4; }
+.student-course-detail .ant-card-body { display: flex; flex-direction: column; gap: 6px; }
+.student-course-detail strong { font-size: 0.7rem; }
+.student-course-detail .ant-typography { font-size: 0.58rem; }
+
+@media (max-width: 600px) {
+  .student-schedule-toolbar { align-items: stretch !important; flex-direction: column; }
+  .student-schedule-toolbar .ant-space-compact { width: 100%; }
+  .student-schedule-toolbar .ant-space-compact .ant-btn:nth-child(2) { flex: 1; }
+}

@@ -13,11 +13,12 @@ import {
 } from '@phosphor-icons/react'
 import { Alert, Button, Card, Col, Flex, Progress, Row, Space, Tag, Typography, message } from 'antd'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
-import StudentLayout from './StudentLayout'
+import StudentLayout, { type StudentPage } from './StudentLayout'
 import './StudentDashboard.css'
 
 type StudentDashboardProps = {
   onLogout: () => void
+  onNavigate: (page: StudentPage) => void
   onNavigateHome: () => void
 }
 
@@ -28,18 +29,18 @@ const skills = [
   { label: 'Viết', value: 6.0 },
 ]
 
-function StudentDashboard({ onLogout, onNavigateHome }: StudentDashboardProps) {
+function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashboardProps) {
   const [messageApi, contextHolder] = message.useMessage()
   const comingSoon = (label: string) => messageApi.info(`${label} sẽ được thực hiện ở trang tiếp theo.`)
 
   return (
-    <StudentLayout mainId="student-dashboard" onLogout={onLogout} onNavigateHome={onNavigateHome}>
+    <StudentLayout activePage="student" mainId="student-dashboard" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
       {contextHolder}
       <AdminPageHeader
         kicker="Không gian học viên"
         title="Chào bạn, Minh Anh"
         description="Theo dõi lịch học, kết quả, chuyên cần và học phí của bạn tại một nơi."
-        actions={<Button type="primary" icon={<CalendarBlank />} onClick={() => comingSoon('Lịch học')}>Xem lịch học</Button>}
+        actions={<Button type="primary" icon={<CalendarBlank />} onClick={() => onNavigate('student-schedule')}>Xem lịch học</Button>}
       />
 
       <AdminSummary items={[
@@ -53,7 +54,7 @@ function StudentDashboard({ onLogout, onNavigateHome }: StudentDashboardProps) {
 
       <Row className="student-dashboard-grid" gutter={[16, 16]}>
         <Col xs={24} xl={14}>
-          <Card title="Buổi học tiếp theo" extra={<Button type="link" onClick={() => comingSoon('Lịch học theo tuần')}>Xem lịch tuần</Button>}>
+          <Card title="Buổi học tiếp theo" extra={<Button type="link" onClick={() => onNavigate('student-schedule')}>Xem lịch tuần</Button>}>
             <div className="student-next-class">
               <div className="student-class-date"><span>Thứ Sáu</span><strong>25</strong><small>Tháng 09</small></div>
               <div className="student-class-info">

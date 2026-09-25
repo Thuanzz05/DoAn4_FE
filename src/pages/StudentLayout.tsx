@@ -15,15 +15,19 @@ import { workspaceTheme } from './workspaceTheme'
 import './AdminAnt.css'
 
 type StudentLayoutProps = {
+  activePage: StudentPage
   children: ReactNode
   mainId?: string
   onLogout: () => void
+  onNavigate: (page: StudentPage) => void
   onNavigateHome: () => void
 }
 
+export type StudentPage = 'student' | 'student-schedule'
+
 const navItems: MenuProps['items'] = [
   { key: 'student', icon: <House weight="duotone" />, label: 'Tổng quan' },
-  { key: 'student-schedule', icon: <CalendarBlank weight="duotone" />, label: 'Lịch học', disabled: true },
+  { key: 'student-schedule', icon: <CalendarBlank weight="duotone" />, label: 'Lịch học' },
   { key: 'student-results', icon: <ChartBar weight="duotone" />, label: 'Điểm và chuyên cần', disabled: true },
   { key: 'student-invoices', icon: <Receipt weight="duotone" />, label: 'Học phí', disabled: true },
   { key: 'student-certificates', icon: <Certificate weight="duotone" />, label: 'Chứng chỉ của tôi', disabled: true },
@@ -35,13 +39,13 @@ const notifications = [
   { title: 'Điểm giữa khóa đã cập nhật', detail: 'Bạn có thể xem kết quả bốn kỹ năng trong mục Điểm số.', icon: ChartBar },
 ] as const
 
-function StudentLayout({ children, mainId, onLogout, onNavigateHome }: StudentLayoutProps) {
+function StudentLayout({ activePage, children, mainId, onLogout, onNavigate, onNavigateHome }: StudentLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const screens = Grid.useBreakpoint()
   const desktop = Boolean(screens.lg)
   const today = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
-  const navigation = <Menu mode="inline" theme="dark" selectedKeys={['student']} items={navItems} onClick={() => setMenuOpen(false)} />
+  const navigation = <Menu mode="inline" theme="dark" selectedKeys={[activePage]} items={navItems} onClick={({ key }) => { setMenuOpen(false); onNavigate(key as StudentPage) }} />
   const brand = <button className="ant-admin-brand" type="button" onClick={onNavigateHome}><strong>Trung tâm</strong><span>Không gian học viên</span></button>
   const account = <div className="ant-admin-account"><Avatar shape="square">MA</Avatar><div><strong>Nguyễn Minh Anh</strong><span>Học viên · HV2401</span></div><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div>
 
