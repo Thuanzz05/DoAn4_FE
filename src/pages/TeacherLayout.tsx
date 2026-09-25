@@ -15,15 +15,19 @@ import { workspaceTheme } from './workspaceTheme'
 import './AdminAnt.css'
 
 type TeacherLayoutProps = {
+  activePage: TeacherPage
   children: ReactNode
   mainId?: string
   onLogout: () => void
+  onNavigate: (page: TeacherPage) => void
   onNavigateHome: () => void
 }
 
+export type TeacherPage = 'teacher' | 'teacher-schedule'
+
 const navItems: MenuProps['items'] = [
   { key: 'teacher', icon: <House weight="duotone" />, label: 'Tổng quan' },
-  { key: 'teacher-schedule', icon: <CalendarBlank weight="duotone" />, label: 'Thời khóa biểu', disabled: true },
+  { key: 'teacher-schedule', icon: <CalendarBlank weight="duotone" />, label: 'Thời khóa biểu' },
   { key: 'teacher-attendance', icon: <ClipboardText weight="duotone" />, label: 'Điểm danh', disabled: true },
   { key: 'teacher-grades', icon: <Exam weight="duotone" />, label: 'Nhập điểm', disabled: true },
 ]
@@ -33,14 +37,14 @@ const notifications = [
   { title: 'Hai buổi chưa hoàn tất điểm danh', detail: 'Vui lòng cập nhật trước 22:00 hôm nay.', icon: WarningCircle },
 ] as const
 
-function TeacherLayout({ children, mainId, onLogout, onNavigateHome }: TeacherLayoutProps) {
+function TeacherLayout({ activePage, children, mainId, onLogout, onNavigate, onNavigateHome }: TeacherLayoutProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const screens = Grid.useBreakpoint()
   const desktop = Boolean(screens.lg)
   const today = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
 
-  const navigation = <Menu mode="inline" theme="dark" selectedKeys={['teacher']} items={navItems} onClick={() => setMenuOpen(false)} />
+  const navigation = <Menu mode="inline" theme="dark" selectedKeys={[activePage]} items={navItems} onClick={({ key }) => { setMenuOpen(false); onNavigate(key as TeacherPage) }} />
   const brand = <button className="ant-admin-brand" type="button" onClick={onNavigateHome}><strong>Trung tâm</strong><span>Không gian giáo viên</span></button>
   const account = <div className="ant-admin-account"><Avatar shape="square">QM</Avatar><div><strong>Nguyễn Quốc Minh</strong><span>Giáo viên tiếng Anh</span></div><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div>
 

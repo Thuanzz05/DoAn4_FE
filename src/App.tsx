@@ -25,12 +25,13 @@ import AdminInvoices from './pages/AdminInvoices'
 import AdminCertificates from './pages/AdminCertificates'
 import AdminReports from './pages/AdminReports'
 import TeacherDashboard from './pages/TeacherDashboard'
+import TeacherSchedule from './pages/TeacherSchedule'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher'
+type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -46,6 +47,7 @@ const getCurrentPage = (): Page => {
   if (path === '/admin/certificates') return 'certificates'
   if (path === '/admin/reports') return 'reports'
   if (path === '/teacher') return 'teacher'
+  if (path === '/teacher/schedule') return 'teacher-schedule'
   return 'home'
 }
 
@@ -118,6 +120,8 @@ function App() {
                           ? 'Báo cáo thống kê | Trung tâm'
                           : page === 'teacher'
                             ? 'Tổng quan giáo viên | Trung tâm'
+                            : page === 'teacher-schedule'
+                              ? 'Thời khóa biểu giáo viên | Trung tâm'
           : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
@@ -146,6 +150,8 @@ function App() {
                           ? '/admin/reports'
                           : nextPage === 'teacher'
                             ? '/teacher'
+                            : nextPage === 'teacher-schedule'
+                              ? '/teacher/schedule'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
@@ -197,7 +203,11 @@ function App() {
   }
 
   if (page === 'teacher') {
-    return <TeacherDashboard onLogout={() => navigate('login')} onNavigateHome={() => navigate('home')} />
+    return <TeacherDashboard onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'teacher-schedule') {
+    return <TeacherSchedule onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')

@@ -11,11 +11,12 @@ import {
 import { Alert, Button, Card, Col, Flex, Progress, Row, Space, Table, Tag, Typography, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
-import TeacherLayout from './TeacherLayout'
+import TeacherLayout, { type TeacherPage } from './TeacherLayout'
 import './TeacherDashboard.css'
 
 type TeacherDashboardProps = {
   onLogout: () => void
+  onNavigate: (page: TeacherPage) => void
   onNavigateHome: () => void
 }
 
@@ -40,7 +41,7 @@ const todaySessions = [
   { time: '19:45–21:15', name: 'IELTS 6.5', room: 'P.302', students: 14, status: 'Đổi phòng', color: 'orange' },
 ]
 
-function TeacherDashboard({ onLogout, onNavigateHome }: TeacherDashboardProps) {
+function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashboardProps) {
   const [messageApi, contextHolder] = message.useMessage()
   const comingSoon = (label: string) => messageApi.info(`${label} sẽ được thực hiện ở trang tiếp theo.`)
 
@@ -66,13 +67,13 @@ function TeacherDashboard({ onLogout, onNavigateHome }: TeacherDashboardProps) {
   ]
 
   return (
-    <TeacherLayout mainId="teacher-dashboard" onLogout={onLogout} onNavigateHome={onNavigateHome}>
+    <TeacherLayout activePage="teacher" mainId="teacher-dashboard" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
       {contextHolder}
       <AdminPageHeader
         kicker="Không gian giáo viên"
         title="Tổng quan giảng dạy"
         description="Theo dõi lịch dạy, công việc cần hoàn tất và tình hình các lớp đang phụ trách."
-        actions={<Button type="primary" icon={<CalendarBlank />} onClick={() => comingSoon('Thời khóa biểu')}>Xem thời khóa biểu</Button>}
+        actions={<Button type="primary" icon={<CalendarBlank />} onClick={() => onNavigate('teacher-schedule')}>Xem thời khóa biểu</Button>}
       />
 
       <AdminSummary items={[
@@ -82,11 +83,11 @@ function TeacherDashboard({ onLogout, onNavigateHome }: TeacherDashboardProps) {
         { label: 'Bảng điểm cần nhập', value: 1, detail: 'Hạn cập nhật 26/09', icon: <Exam weight="duotone" /> },
       ]} />
 
-      <Alert className="teacher-alert" type="warning" showIcon message="Thay đổi lịch dạy" description="Lớp IELTS 6.5 tối nay chuyển sang P.302. Danh sách học viên không thay đổi." />
+      <Alert className="teacher-alert" type="warning" showIcon title="Thay đổi lịch dạy" description="Lớp IELTS 6.5 tối nay chuyển sang P.302. Danh sách học viên không thay đổi." />
 
       <Row gutter={[16, 16]} className="teacher-dashboard-grid">
         <Col xs={24} xl={15}>
-          <Card title="Lịch dạy hôm nay" extra={<Button type="link" onClick={() => comingSoon('Lịch dạy theo tuần')}>Xem cả tuần</Button>}>
+          <Card title="Lịch dạy hôm nay" extra={<Button type="link" onClick={() => onNavigate('teacher-schedule')}>Xem cả tuần</Button>}>
             <Space orientation="vertical" size={0} className="teacher-session-list">
               {todaySessions.map((session) => (
                 <Flex className="teacher-session" align="center" gap={16} key={session.time} wrap>

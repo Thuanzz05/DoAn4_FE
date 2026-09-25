@@ -1,0 +1,41 @@
+.teacher-schedule-alert { margin-top: 24px; }
+.teacher-schedule-card { margin-top: 16px; border-color: #dbe3dc; }
+.teacher-schedule-toolbar h3.ant-typography { margin: 4px 0 0; font-family: var(--display); font-size: 1.55rem; font-weight: 600; text-transform: capitalize; }
+.teacher-schedule-toolbar .ant-typography-secondary { font-size: 0.62rem; }
+.teacher-week-scroll { overflow-x: auto; padding-bottom: 8px; }
+.teacher-week-grid { display: grid; min-width: 840px; grid-template-columns: repeat(7, minmax(118px, 1fr)); border: 1px solid #e2e8e3; border-radius: 10px; background: #f8faf8; }
+.teacher-week-grid > section { min-height: 460px; border-right: 1px solid #e2e8e3; }
+.teacher-week-grid > section:last-child { border-right: 0; }
+.teacher-week-grid section > header { display: flex; height: 70px; align-items: center; justify-content: center; flex-direction: column; border-bottom: 1px solid #e2e8e3; color: #60726c; text-transform: capitalize; }
+.teacher-week-grid section > header span { font-size: 0.58rem; font-weight: 700; }
+.teacher-week-grid section > header strong { margin-top: 4px; font-family: var(--display); font-size: 1.4rem; }
+.teacher-week-grid section.is-today > header { color: #fff; background: #12332f; }
+.teacher-day-sessions { display: flex; flex-direction: column; gap: 8px; padding: 8px; }
+.teacher-schedule-session { display: flex; min-height: 145px; align-items: flex-start; flex-direction: column; padding: 12px; border: 1px solid #dbe5dc; border-radius: 9px; color: #12332f; background: #fff; cursor: pointer; text-align: left; transition: border-color 160ms ease, transform 160ms ease; }
+.teacher-schedule-session:hover { border-color: #7aa08c; transform: translateY(-1px); }
+.teacher-schedule-session.changed { border-color: #efc475; background: #fffaf0; }
+.teacher-schedule-time { display: flex; align-items: center; gap: 4px; color: #6b7c76; font-size: 0.55rem; }
+.teacher-schedule-time svg,
+.teacher-schedule-session small svg { width: 13px; height: 13px; }
+.teacher-schedule-session strong { margin-top: 10px; font-size: 0.66rem; line-height: 1.35; }
+.teacher-schedule-session small { display: flex; align-items: center; gap: 3px; margin: 5px 0 12px; color: #71827b; font-size: 0.56rem; }
+.teacher-schedule-session .ant-tag { margin-top: auto; font-size: 0.52rem; }
+.teacher-schedule-legend { margin-top: 18px; color: #697a74; font-size: 0.58rem; }
+.teacher-schedule-legend span { display: flex; align-items: center; gap: 7px; }
+.teacher-schedule-legend i { width: 8px; height: 8px; border-radius: 50%; background: #397359; }
+.teacher-schedule-legend i.upcoming { background: #1677ff; }
+.teacher-schedule-legend i.changed { background: #d79523; }
+.teacher-session-drawer-title { margin: 4px 0 18px !important; font-family: var(--display); }
+.teacher-session-meta { width: 100%; }
+.teacher-session-meta span { display: flex; align-items: center; gap: 8px; color: #50635c; font-size: 0.68rem; text-transform: capitalize; }
+.teacher-session-meta svg { width: 18px; height: 18px; color: #397359; }
+.teacher-student-preview { display: flex; flex-direction: column; gap: 13px; }
+.teacher-student-preview > .ant-flex { padding-bottom: 10px; border-bottom: 1px solid #edf0ed; }
+.teacher-student-preview .ant-typography { font-size: 0.66rem; }
+.teacher-open-attendance { margin-top: 24px; }
+
+@media (max-width: 600px) {
+  .teacher-schedule-toolbar { align-items: stretch !important; flex-direction: column; }
+  .teacher-schedule-toolbar .ant-space-compact { width: 100%; }
+  .teacher-schedule-toolbar .ant-space-compact .ant-btn:nth-child(2) { flex: 1; }
+}
