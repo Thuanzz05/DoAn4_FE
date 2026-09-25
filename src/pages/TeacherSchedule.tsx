@@ -9,7 +9,7 @@ import {
   UsersThree,
   WarningCircle,
 } from '@phosphor-icons/react'
-import { Alert, Button, Card, Divider, Drawer, Empty, Flex, Space, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Divider, Drawer, Empty, Flex, Space, Tag, Typography } from 'antd'
 import { AdminPageHeader } from './AdminPageKit'
 import TeacherLayout, { type TeacherPage } from './TeacherLayout'
 import './TeacherSchedule.css'
@@ -56,7 +56,6 @@ const weekKey = (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date
 function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherScheduleProps) {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
   const [selected, setSelected] = useState<Session | null>(null)
-  const [messageApi, contextHolder] = message.useMessage()
   const dateFormat = useMemo(() => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }), [])
   const fullDateFormat = useMemo(() => new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }), [])
   const weekSessions = weekKey(weekStart) === weekKey(referenceWeek) ? sessions : []
@@ -64,7 +63,6 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
 
   return (
     <TeacherLayout activePage="teacher-schedule" mainId="teacher-schedule" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-      {contextHolder}
       <AdminPageHeader
         kicker="Lịch giảng dạy"
         title="Thời khóa biểu"
@@ -128,7 +126,7 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
             {studentPreview.map((student, index) => <Flex justify="space-between" key={student}><Typography.Text>{index + 1}. {student}</Typography.Text><Tag>Đang học</Tag></Flex>)}
             <Typography.Text type="secondary">Và {selected.students - studentPreview.length} học viên khác</Typography.Text>
           </div>
-          <Button type="primary" block className="teacher-open-attendance" onClick={() => messageApi.info('Trang điểm danh sẽ được làm tiếp.')}>Mở điểm danh</Button>
+          <Button type="primary" block className="teacher-open-attendance" onClick={() => onNavigate('teacher-attendance')}>Mở điểm danh</Button>
         </>}
       </Drawer>
     </TeacherLayout>

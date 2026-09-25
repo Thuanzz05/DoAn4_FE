@@ -1,0 +1,30 @@
+.attendance-session-card { margin-top: 24px; border-color: #dbe3dc; }
+.attendance-session-card .ant-card-body > .ant-flex > div:first-child { display: flex; min-width: 360px; flex-direction: column; gap: 8px; }
+.attendance-session-card .ant-select { width: min(430px, 100%); }
+.attendance-session-card .ant-typography-secondary { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; }
+.attendance-session-meta span { display: flex; align-items: center; gap: 6px; color: #54675f; font-size: 0.64rem; }
+.attendance-session-meta svg { width: 17px; height: 17px; color: #397359; }
+.attendance-table-card { margin-top: 16px; }
+.attendance-table-card .ant-avatar { color: #12332f; background: #e4eee5; font-size: 0.58rem; font-weight: 800; }
+.attendance-options .ant-radio-button-wrapper { padding-inline: 11px; font-size: 0.59rem; }
+.attendance-options.status-present .ant-radio-button-wrapper-checked { border-color: #397359; background: #397359; }
+.attendance-options.status-late .ant-radio-button-wrapper-checked { border-color: #c98a2e; background: #c98a2e; }
+.attendance-options.status-absent .ant-radio-button-wrapper-checked { border-color: #d44735; background: #d44735; }
+.attendance-table-card .ant-input { min-width: 150px; font-size: 0.62rem; }
+.attendance-history-card { margin-top: 16px; border-color: #dbe3dc; }
+.attendance-history-card .ant-card-head-title { font-family: var(--display); font-size: 1.25rem; font-weight: 600; }
+.attendance-history-row { display: grid; min-height: 62px; grid-template-columns: minmax(220px, 1fr) auto auto minmax(150px, auto); gap: 12px; align-items: center; border-bottom: 1px solid #edf0ed; }
+.attendance-history-row:last-child { border-bottom: 0; }
+.attendance-history-row > span:first-child { display: flex; flex-direction: column; }
+.attendance-history-row strong { font-size: 0.66rem; }
+.attendance-history-row small { margin-top: 4px; color: #73847d; font-size: 0.57rem; }
+.attendance-history-row .ant-typography { font-size: 0.6rem; }
+
+@media (max-width: 720px) {
+  .attendance-session-card .ant-card-body > .ant-flex > div:first-child { width: 100%; min-width: 0; }
+  .attendance-session-card .ant-select { width: 100%; }
+  .attendance-table-card .ant-card-extra { width: 100%; }
+  .attendance-table-card .ant-card-extra .ant-space { display: grid; grid-template-columns: 1fr 1fr; }
+  .attendance-history-row { grid-template-columns: 1fr auto auto; padding: 12px 0; }
+  .attendance-history-row .ant-typography { grid-column: 1 / -1; }
+}

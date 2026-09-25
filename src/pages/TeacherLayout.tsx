@@ -23,12 +23,12 @@ type TeacherLayoutProps = {
   onNavigateHome: () => void
 }
 
-export type TeacherPage = 'teacher' | 'teacher-schedule'
+export type TeacherPage = 'teacher' | 'teacher-schedule' | 'teacher-attendance'
 
 const navItems: MenuProps['items'] = [
   { key: 'teacher', icon: <House weight="duotone" />, label: 'Tổng quan' },
   { key: 'teacher-schedule', icon: <CalendarBlank weight="duotone" />, label: 'Thời khóa biểu' },
-  { key: 'teacher-attendance', icon: <ClipboardText weight="duotone" />, label: 'Điểm danh', disabled: true },
+  { key: 'teacher-attendance', icon: <ClipboardText weight="duotone" />, label: 'Điểm danh' },
   { key: 'teacher-grades', icon: <Exam weight="duotone" />, label: 'Nhập điểm', disabled: true },
 ]
 

@@ -26,12 +26,13 @@ import AdminCertificates from './pages/AdminCertificates'
 import AdminReports from './pages/AdminReports'
 import TeacherDashboard from './pages/TeacherDashboard'
 import TeacherSchedule from './pages/TeacherSchedule'
+import TeacherAttendance from './pages/TeacherAttendance'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule'
+type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -48,6 +49,7 @@ const getCurrentPage = (): Page => {
   if (path === '/admin/reports') return 'reports'
   if (path === '/teacher') return 'teacher'
   if (path === '/teacher/schedule') return 'teacher-schedule'
+  if (path === '/teacher/attendance') return 'teacher-attendance'
   return 'home'
 }
 
@@ -122,6 +124,8 @@ function App() {
                             ? 'Tổng quan giáo viên | Trung tâm'
                             : page === 'teacher-schedule'
                               ? 'Thời khóa biểu giáo viên | Trung tâm'
+                              : page === 'teacher-attendance'
+                                ? 'Điểm danh lớp học | Trung tâm'
           : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
@@ -152,6 +156,8 @@ function App() {
                             ? '/teacher'
                             : nextPage === 'teacher-schedule'
                               ? '/teacher/schedule'
+                              : nextPage === 'teacher-attendance'
+                                ? '/teacher/attendance'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
@@ -208,6 +214,10 @@ function App() {
 
   if (page === 'teacher-schedule') {
     return <TeacherSchedule onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'teacher-attendance') {
+    return <TeacherAttendance onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')
