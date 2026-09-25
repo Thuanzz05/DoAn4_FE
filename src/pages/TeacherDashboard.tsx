@@ -62,7 +62,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
       title: '',
       key: 'action',
       align: 'right',
-      render: (_, record) => <Button type="link" onClick={() => comingSoon(record.nextTask)}>{record.nextTask}<ArrowRight /></Button>,
+      render: (_, record) => <Button type="link" onClick={() => record.nextTask === 'Nhập điểm' ? onNavigate('teacher-grades') : record.nextTask === 'Điểm danh' ? onNavigate('teacher-attendance') : comingSoon(record.nextTask)}>{record.nextTask}<ArrowRight /></Button>,
     },
   ]
 
@@ -94,7 +94,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
                   <div className="teacher-session-time"><Clock weight="duotone" /><strong>{session.time}</strong></div>
                   <div className="teacher-session-info"><Typography.Text strong>{session.name}</Typography.Text><Typography.Text type="secondary"><MapPin />{session.room} · {session.students} học viên</Typography.Text></div>
                   <Tag color={session.color}>{session.status}</Tag>
-                  <Button onClick={() => comingSoon(`Điểm danh lớp ${session.name}`)}>Mở lớp</Button>
+                  <Button onClick={() => onNavigate('teacher-attendance')}>Mở lớp</Button>
                 </Flex>
               ))}
             </Space>
@@ -103,12 +103,12 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
 
         <Col xs={24} xl={9}>
           <Card title="Việc cần hoàn tất" className="teacher-tasks-card">
-            <button type="button" onClick={() => comingSoon('Điểm danh')}>
+            <button type="button" onClick={() => onNavigate('teacher-attendance')}>
               <span className="teacher-task-icon danger"><ClipboardText weight="duotone" /></span>
               <span><strong>Hoàn tất điểm danh</strong><small>B1 Tổng quát · Buổi 17/09</small></span>
               <Tag color="red">Quá hạn</Tag>
             </button>
-            <button type="button" onClick={() => comingSoon('Nhập điểm')}>
+            <button type="button" onClick={() => onNavigate('teacher-grades')}>
               <span className="teacher-task-icon warning"><Exam weight="duotone" /></span>
               <span><strong>Nhập điểm bốn kỹ năng</strong><small>IELTS 6.5 · Hạn 26/09</small></span>
               <ArrowRight />

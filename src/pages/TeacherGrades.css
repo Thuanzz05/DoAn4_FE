@@ -1,0 +1,19 @@
+.teacher-grades-alert { margin-top: 24px; }
+.teacher-grades-alert.ant-alert-info { border-color: #cbdccf; background: #edf3ed; }
+.teacher-grades-alert.ant-alert-info .ant-alert-icon { color: #397359; }
+.grades-filter-card { margin-top: 16px; border-color: #dbe3dc; }
+.grades-filter-card label { display: flex; min-width: 260px; flex-direction: column; gap: 7px; }
+.grades-filter-card label > .ant-typography { color: #64766f; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }
+.grades-filter-card .ant-select { width: 280px; }
+.grades-table-card { margin-top: 16px; }
+.grades-table-card .ant-avatar { color: #12332f; background: #e4eee5; font-size: 0.58rem; font-weight: 800; }
+.grades-table-card .ant-input-number { width: 76px; }
+.grades-table-card .ant-input-number-input { font-size: 0.66rem; font-weight: 700; text-align: center; }
+.grade-average { color: #12332f; font-family: var(--display); font-size: 1rem; }
+
+@media (max-width: 640px) {
+  .grades-filter-card .ant-space,
+  .grades-filter-card label,
+  .grades-filter-card .ant-select { width: 100%; }
+  .grades-filter-card .ant-space { display: grid; }
+}
