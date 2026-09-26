@@ -78,7 +78,7 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
 
       <Row className="student-dashboard-grid" gutter={[16, 16]}>
         <Col xs={24} lg={12}>
-          <Card title="Kết quả giữa khóa" extra={<Button type="link" onClick={() => comingSoon('Điểm số')}>Xem tất cả</Button>}>
+          <Card title="Kết quả giữa khóa" extra={<Button type="link" onClick={() => onNavigate('student-results')}>Xem tất cả</Button>}>
             <div className="student-skill-grid">{skills.map((skill) => <div key={skill.label}><span>{skill.label}</span><strong>{skill.value.toFixed(1)}</strong><Progress percent={skill.value * 10} showInfo={false} strokeColor="#397359" /></div>)}</div>
             <Flex className="student-score-total" align="center" justify="space-between"><span><small>Điểm trung bình</small><strong>6.8</strong></span><Tag color="green">Đạt yêu cầu</Tag></Flex>
           </Card>

@@ -30,12 +30,13 @@ import TeacherAttendance from './pages/TeacherAttendance'
 import TeacherGrades from './pages/TeacherGrades'
 import StudentDashboard from './pages/StudentDashboard'
 import StudentSchedule from './pages/StudentSchedule'
+import StudentResults from './pages/StudentResults'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student' | 'student-schedule'
+type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student' | 'student-schedule' | 'student-results'
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -56,6 +57,7 @@ const getCurrentPage = (): Page => {
   if (path === '/teacher/grades') return 'teacher-grades'
   if (path === '/student') return 'student'
   if (path === '/student/schedule') return 'student-schedule'
+  if (path === '/student/results') return 'student-results'
   return 'home'
 }
 
@@ -138,6 +140,8 @@ function App() {
                                     ? 'Tổng quan học viên | Trung tâm'
                                     : page === 'student-schedule'
                                       ? 'Lịch học cá nhân | Trung tâm'
+                                      : page === 'student-results'
+                                        ? 'Điểm số và chuyên cần | Trung tâm'
           : 'Hệ thống quản lý trung tâm ngoại ngữ'
   }, [page])
 
@@ -176,6 +180,8 @@ function App() {
                                     ? '/student'
                                     : nextPage === 'student-schedule'
                                       ? '/student/schedule'
+                                      : nextPage === 'student-results'
+                                        ? '/student/results'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
     setPage(nextPage)
@@ -248,6 +254,10 @@ function App() {
 
   if (page === 'student-schedule') {
     return <StudentSchedule onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+  }
+
+  if (page === 'student-results') {
+    return <StudentResults onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')

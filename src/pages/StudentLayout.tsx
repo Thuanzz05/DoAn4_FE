@@ -23,12 +23,12 @@ type StudentLayoutProps = {
   onNavigateHome: () => void
 }
 
-export type StudentPage = 'student' | 'student-schedule'
+export type StudentPage = 'student' | 'student-schedule' | 'student-results'
 
 const navItems: MenuProps['items'] = [
   { key: 'student', icon: <House weight="duotone" />, label: 'Tổng quan' },
   { key: 'student-schedule', icon: <CalendarBlank weight="duotone" />, label: 'Lịch học' },
-  { key: 'student-results', icon: <ChartBar weight="duotone" />, label: 'Điểm và chuyên cần', disabled: true },
+  { key: 'student-results', icon: <ChartBar weight="duotone" />, label: 'Điểm và chuyên cần' },
   { key: 'student-invoices', icon: <Receipt weight="duotone" />, label: 'Học phí', disabled: true },
   { key: 'student-certificates', icon: <Certificate weight="duotone" />, label: 'Chứng chỉ của tôi', disabled: true },
 ]

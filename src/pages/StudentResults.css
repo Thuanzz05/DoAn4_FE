@@ -1,0 +1,45 @@
+.student-results-tabs { margin-top: 20px; border-color: #dbe3dc; }
+.student-results-tabs > .ant-card-body { padding-top: 8px; }
+.student-results-tabs .ant-tabs-nav { margin-bottom: 18px; }
+.student-results-tabs .ant-tabs-tab { font-size: .65rem; font-weight: 700; }
+.student-result-panel { display: grid; gap: 16px; }
+.student-skill-cards .ant-card { height: 100%; border-color: #dfe6e0; background: #f8faf8; }
+.student-skill-cards span { color: #667871; font-size: .62rem; font-weight: 700; }
+.student-skill-cards strong { color: #12332f; font-family: var(--display); font-size: 1.45rem; }
+.student-skill-cards .ant-progress { margin-top: 12px; }
+.student-result-score { color: #12332f; font-family: var(--display); font-size: 1.05rem; }
+.student-attendance-cards .ant-card { height: 100%; border-color: #dfe6e0; }
+.student-attendance-cards .ant-card-body { display: grid; grid-template-columns: 1fr auto; align-items: end; column-gap: 8px; }
+.student-attendance-cards .student-result-label { grid-column: 1 / -1; color: #667871; font-size: .6rem; font-weight: 800; text-transform: uppercase; }
+.student-attendance-cards strong { color: #12332f; font-family: var(--display); font-size: 2rem; }
+.student-attendance-cards small { padding-bottom: 6px; color: #819089; font-size: .55rem; }
+.student-attendance-progress { border-color: #dfe6e0; background: #f7faf7; }
+.student-attendance-progress h4.ant-typography { margin: 0 0 5px; font-family: var(--display); }
+.student-attendance-progress p.ant-typography { max-width: 540px; margin-bottom: 10px; }
+.student-attendance-progress .ant-tag { display: inline-flex; align-items: center; gap: 5px; }
+.student-certificate-card { border-color: #dfe6e0; }
+.student-condition-list { display: grid; }
+.student-condition-list > div { display: grid; grid-template-columns: 32px 1fr auto; align-items: center; gap: 12px; padding: 17px 0; border-bottom: 1px solid #e7ece8; }
+.student-condition-list > div:last-child { border-bottom: 0; }
+.student-condition-list > div > svg { width: 24px; height: 24px; color: #397359; }
+.student-condition-list > div.pending > svg { color: #c98a2e; }
+.student-condition-list > div.blocked > svg { color: #d44735; }
+.student-condition-list span { display: grid; gap: 3px; }
+.student-condition-list strong { color: #243a34; font-size: .65rem; }
+.student-condition-list small { color: #74857e; font-size: .56rem; }
+.student-history-card { border-color: #dfe6e0; background: linear-gradient(135deg, #fff 0%, #f2f7f2 100%); }
+.student-history-card h3.ant-typography { margin: 12px 0 3px; font-family: var(--display); }
+.student-history-score { min-width: 112px; padding: 14px 18px; border-left: 3px solid #397359; background: #fff; }
+.student-history-score small,
+.student-history-score strong { display: block; }
+.student-history-score small { color: #788880; font-size: .54rem; }
+.student-history-score strong { margin-top: 5px; color: #12332f; font-family: var(--display); font-size: 1.7rem; }
+.student-history-meta { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 20px; padding-top: 18px; border-top: 1px solid #dde5de; }
+.student-history-meta span { display: flex; align-items: center; gap: 7px; color: #51665d; font-size: .6rem; }
+.student-history-meta svg { width: 18px; height: 18px; color: #397359; }
+
+@media (max-width: 600px) {
+  .student-results-tabs > .ant-card-body { padding: 8px 12px 16px; }
+  .student-condition-list > div { grid-template-columns: 28px 1fr; }
+  .student-condition-list .ant-tag { grid-column: 2; justify-self: start; }
+}
