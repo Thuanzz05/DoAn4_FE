@@ -35,10 +35,20 @@ import StudentInvoices from './pages/StudentInvoices'
 import StudentCertificates from './pages/StudentCertificates'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import { api, clearSession, getSession, type AuthRole, type AuthSession } from './api'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
 type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student' | 'student-schedule' | 'student-results' | 'student-invoices' | 'student-certificates'
+
+const privateRole = (page: Page): AuthRole | null => {
+  if (['admin', 'students', 'courses', 'classes', 'teachers', 'schedule', 'invoices', 'certificates', 'reports'].includes(page)) return 'quan_tri'
+  if (page.startsWith('teacher')) return 'giao_vien'
+  if (page.startsWith('student')) return 'hoc_vien'
+  return null
+}
+
+const roleHome: Record<AuthRole, Page> = { quan_tri: 'admin', giao_vien: 'teacher', hoc_vien: 'student' }
 
 const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
@@ -101,13 +111,31 @@ const roleContent: Record<Role, { label: string; title: string; description: str
 function App() {
   const [activeRole, setActiveRole] = useState<Role>('admin')
   const [page, setPage] = useState<Page>(getCurrentPage)
+  const [session, setSession] = useState<AuthSession | null>(getSession)
   const role = roleContent[activeRole]
 
   useEffect(() => {
     const syncPage = () => setPage(getCurrentPage())
+    const expireSession = () => {
+      setSession(null)
+      window.history.replaceState({}, '', '/login')
+      setPage('login')
+    }
     window.addEventListener('popstate', syncPage)
-    return () => window.removeEventListener('popstate', syncPage)
+    window.addEventListener('auth:expired', expireSession)
+    return () => {
+      window.removeEventListener('popstate', syncPage)
+      window.removeEventListener('auth:expired', expireSession)
+    }
   }, [])
+
+  useEffect(() => {
+    const required = privateRole(page)
+    if (required && session?.user.role !== required) {
+      window.history.replaceState({}, '', '/login')
+      setPage('login')
+    }
+  }, [page, session])
 
   useEffect(() => {
     document.title = page === 'login'
@@ -200,84 +228,100 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
 
+  const authenticated = (nextSession: AuthSession) => {
+    setSession(nextSession)
+    navigate(roleHome[nextSession.user.role])
+  }
+
+  const logout = async () => {
+    try {
+      await api('/auth/logout', { method: 'POST' })
+    } catch {
+      // Xóa phiên phía trình duyệt ngay cả khi máy chủ không phản hồi.
+    }
+    clearSession()
+    setSession(null)
+    navigate('login')
+  }
+
   if (page === 'login') {
-    return <LoginPage onNavigateHome={() => navigate('home')} onNavigateRegister={() => navigate('register')} />
+    return <LoginPage onNavigateHome={() => navigate('home')} onNavigateRegister={() => navigate('register')} onAuthenticated={authenticated} />
   }
 
   if (page === 'register') {
-    return <RegisterPage onNavigateHome={() => navigate('home')} onNavigateLogin={() => navigate('login')} />
+    return <RegisterPage onNavigateHome={() => navigate('home')} onNavigateLogin={() => navigate('login')} onAuthenticated={authenticated} />
   }
 
   if (page === 'admin') {
-    return <AdminDashboard onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <AdminDashboard onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'students') {
-    return <AdminStudents onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <AdminStudents onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'courses') {
-    return <AdminCourses onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <AdminCourses onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'classes') {
-    return <AdminClasses onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <AdminClasses onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'teachers') {
-    return <AdminTeachers onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <AdminTeachers onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'schedule') {
-    return <AdminSchedule onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <AdminSchedule onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'invoices') {
-    return <AdminInvoices onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <AdminInvoices onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'certificates') {
-    return <AdminCertificates onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <AdminCertificates onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'reports') {
-    return <AdminReports onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <AdminReports onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'teacher') {
-    return <TeacherDashboard onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <TeacherDashboard onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'teacher-schedule') {
-    return <TeacherSchedule onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <TeacherSchedule onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'teacher-attendance') {
-    return <TeacherAttendance onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <TeacherAttendance onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'teacher-grades') {
-    return <TeacherGrades onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <TeacherGrades onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'student') {
-    return <StudentDashboard onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <StudentDashboard onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'student-schedule') {
-    return <StudentSchedule onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <StudentSchedule onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'student-results') {
-    return <StudentResults onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <StudentResults onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'student-invoices') {
-    return <StudentInvoices onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <StudentInvoices onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   if (page === 'student-certificates') {
-    return <StudentCertificates onLogout={() => navigate('login')} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
+    return <StudentCertificates onLogout={logout} onNavigate={(nextPage) => navigate(nextPage)} onNavigateHome={() => navigate('home')} />
   }
 
   const openLogin = () => navigate('login')
@@ -346,12 +390,12 @@ function App() {
                 )
               })}
             </ol>
-            <aside className="rule-sheet" aria-label="Ví dụ kiểm tra điều kiện">
-              <div className="rule-sheet-heading"><span>Hồ sơ minh họa HV-0248</span><span className="status-open">Đang học</span></div>
+            <aside className="rule-sheet" aria-label="Quy tắc kiểm tra điều kiện">
+              <div className="rule-sheet-heading"><span>Kiểm tra điều kiện</span><span className="status-open">Tự động</span></div>
               <h3>Điều kiện dự thi được kiểm tra tự động.</h3>
-              <div className="rule-row passed"><Check aria-hidden="true" weight="bold" /><span>Chuyên cần đạt yêu cầu</span><strong>82%</strong></div>
-              <div className="rule-row blocked"><LockKey aria-hidden="true" weight="fill" /><span>Học phí chưa hoàn tất</span><strong>Chưa nộp</strong></div>
-              <p className="rule-result">Quyền dự thi tạm khóa cho đến khi kế toán xác nhận thanh toán.</p>
+              <div className="rule-row passed"><Check aria-hidden="true" weight="bold" /><span>Chuyên cần theo quy định</span><strong>Bắt buộc</strong></div>
+              <div className="rule-row blocked"><LockKey aria-hidden="true" weight="fill" /><span>Học phí đã xác nhận</span><strong>Bắt buộc</strong></div>
+              <p className="rule-result">Hệ thống chỉ mở quyền dự thi khi học viên đáp ứng đầy đủ điều kiện.</p>
             </aside>
           </div>
         </section>

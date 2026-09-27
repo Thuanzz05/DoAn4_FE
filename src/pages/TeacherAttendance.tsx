@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle,
   ClipboardText,
@@ -14,6 +14,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import TeacherLayout, { type TeacherPage } from './TeacherLayout'
 import './TeacherAttendance.css'
+import { api, errorMessage, json } from '../api'
 
 type TeacherAttendanceProps = {
   onLogout: () => void
@@ -23,17 +24,8 @@ type TeacherAttendanceProps = {
 
 type AttendanceStatus = 'present' | 'late' | 'absent' | ''
 type Student = { id: number; code: string; name: string; rate: number }
-
-const students: Student[] = [
-  ['HV2401', 'Nguyễn Minh Anh', 96], ['HV2402', 'Trần Hải Đăng', 88], ['HV2403', 'Lê Thu Hà', 92],
-  ['HV2404', 'Phạm Quốc Huy', 84], ['HV2405', 'Vũ Ngọc Lan', 98], ['HV2406', 'Đỗ Minh Khang', 76],
-  ['HV2407', 'Bùi Khánh Linh', 90], ['HV2408', 'Hoàng Gia Bảo', 86], ['HV2409', 'Nguyễn Thu Trang', 94],
-  ['HV2410', 'Trần Đức Anh', 82], ['HV2411', 'Lê Hoàng Nam', 89], ['HV2412', 'Phan Ngọc Mai', 93],
-  ['HV2413', 'Võ Minh Quân', 78], ['HV2414', 'Đặng Thanh Hà', 95], ['HV2415', 'Nguyễn Nhật Long', 87],
-  ['HV2416', 'Trương Anh Thư', 91], ['HV2417', 'Lý Quốc Bảo', 80], ['HV2418', 'Phạm Minh Châu', 97],
-].map(([code, name, rate], index) => ({ id: index + 1, code: String(code), name: String(name), rate: Number(rate) }))
-
-const initialAttendance = Object.fromEntries(students.map((student, index) => [student.id, index < 12 ? 'present' : index === 12 ? 'late' : index === 13 ? 'absent' : ''])) as Record<number, AttendanceStatus>
+type SessionApi = { id: number; className: string; startsAt: string; endsAt: string; roomCode: string; students: number; attendanceMarked: number; status: string }
+type AttendanceApi = { enrollmentId: number; studentCode: string; studentName: string; status: 'co_mat' | 'di_muon' | 'vang' | null; note: string | null; attendanceRate: number | null }
 const attendanceOptions = [
   { label: 'Có mặt', value: 'present' },
   { label: 'Muộn', value: 'late' },
@@ -48,21 +40,23 @@ if (import.meta.env.DEV) {
 }
 
 function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAttendanceProps) {
-  const [session, setSession] = useState('a2-2509')
-  const [attendance, setAttendance] = useState(initialAttendance)
-  const [notes, setNotes] = useState<Record<number, string>>({ 14: 'Đã xin phép' })
+  const [sessions, setSessions] = useState<SessionApi[]>([])
+  const [session, setSession] = useState<number>()
+  const [students, setStudents] = useState<Student[]>([])
+  const [attendance, setAttendance] = useState<Record<number, AttendanceStatus>>({})
+  const [notes, setNotes] = useState<Record<number, string>>({})
   const [saved, setSaved] = useState(false)
   const [messageApi, messageContext] = message.useMessage()
   const [modalApi, modalContext] = Modal.useModal()
 
   const counts = useMemo(() => countAttendance(Object.values(attendance)), [attendance])
+  const currentSession = sessions.find((item) => item.id === session)
+  useEffect(() => { api<SessionApi[]>('/teacher/sessions').then((rows) => { setSessions(rows); setSession((current) => current ?? rows[0]?.id) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  useEffect(() => { if (!session) return; api<{ students: AttendanceApi[] }>(`/teacher/sessions/${session}/attendance`).then((result) => { setStudents(result.students.map((item) => ({ id: item.enrollmentId, code: item.studentCode, name: item.studentName, rate: Number(item.attendanceRate ?? 0) }))); setAttendance(Object.fromEntries(result.students.map((item) => [item.enrollmentId, item.status === 'co_mat' ? 'present' : item.status === 'di_muon' ? 'late' : item.status === 'vang' ? 'absent' : '']))); setNotes(Object.fromEntries(result.students.map((item) => [item.enrollmentId, item.note ?? '']))); setSaved(result.students.length > 0 && result.students.every((item) => item.status)) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi, session])
   const setStatus = (id: number, status: AttendanceStatus) => setAttendance((current) => ({ ...current, [id]: status }))
   const markAllPresent = () => setAttendance(Object.fromEntries(students.map((student) => [student.id, 'present'])) as Record<number, AttendanceStatus>)
 
-  const persist = () => {
-    setSaved(true)
-    messageApi.success('Đã lưu điểm danh cho buổi học.')
-  }
+  const persist = async () => { if (!session) return; try { await api(`/teacher/sessions/${session}/attendance`, json('PUT', { items: students.map((student) => ({ enrollmentId: student.id, status: attendance[student.id] === 'present' ? 'co_mat' : attendance[student.id] === 'late' ? 'di_muon' : 'vang', note: notes[student.id] || null })) })); setSaved(true); messageApi.success('Đã lưu điểm danh cho buổi học.') } catch (error) { messageApi.error(errorMessage(error)) } }
 
   const saveAttendance = () => {
     if (counts.unmarked) {
@@ -70,7 +64,7 @@ function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAtte
       return
     }
     if (!saved) {
-      persist()
+      void persist()
       return
     }
     modalApi.confirm({ title: 'Ghi đè dữ liệu điểm danh?', content: 'Buổi học này đã được lưu. Các thay đổi mới sẽ thay thế kết quả trước đó.', okText: 'Ghi đè', cancelText: 'Hủy', onOk: persist })
@@ -100,13 +94,13 @@ function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAtte
         kicker="Theo dõi chuyên cần"
         title="Điểm danh lớp học"
         description="Chọn buổi học, cập nhật trạng thái từng học viên và xác nhận trước khi lưu."
-        actions={<Button icon={<DownloadSimple />} onClick={() => messageApi.info('Đã chuẩn bị bảng điểm danh để xuất.')}>Xuất bảng</Button>}
+        actions={<Button icon={<DownloadSimple />} onClick={() => { const rows = [['Mã học viên', 'Họ tên', 'Trạng thái', 'Ghi chú'], ...students.map((item) => [item.code, item.name, attendance[item.id], notes[item.id] ?? ''])]; const url = URL.createObjectURL(new Blob([`\uFEFF${rows.map((row) => row.join(',')).join('\n')}`], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = 'diem-danh.csv'; link.click(); URL.revokeObjectURL(url) }}>Xuất bảng</Button>}
       />
 
       <Card className="attendance-session-card">
         <Flex align="center" justify="space-between" gap={20} wrap>
-          <div><Typography.Text type="secondary">Buổi học cần điểm danh</Typography.Text><Select value={session} onChange={(value) => { setSession(value); setSaved(value !== 'a2-2509') }} options={[{ value: 'a2-2509', label: 'A2 Giao tiếp · 25/09/2026 · 18:00' }, { value: 'ielts-2409', label: 'IELTS 6.5 · 24/09/2026 · 19:45' }, { value: 'b1-2009', label: 'B1 Tổng quát · 20/09/2026 · 08:00' }]} /></div>
-          <Space size={22} wrap className="attendance-session-meta"><span><Clock />18:00–19:30</span><span><MapPin />P.201</span><span><UsersThree />18 học viên</span><Tag color={saved ? 'green' : 'orange'}>{saved ? 'Đã lưu' : 'Chưa hoàn tất'}</Tag></Space>
+          <div><Typography.Text type="secondary">Buổi học cần điểm danh</Typography.Text><Select value={session} onChange={setSession} options={sessions.map((item) => ({ value: item.id, label: `${item.className} · ${new Date(item.startsAt).toLocaleString('vi-VN')}` }))} /></div>
+          <Space size={22} wrap className="attendance-session-meta"><span><Clock />{currentSession ? `${new Date(currentSession.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(currentSession.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : '—'}</span><span><MapPin />{currentSession?.roomCode ?? '—'}</span><span><UsersThree />{students.length} học viên</span><Tag color={saved ? 'green' : 'orange'}>{saved ? 'Đã lưu' : 'Chưa hoàn tất'}</Tag></Space>
         </Flex>
       </Card>
 
@@ -125,10 +119,6 @@ function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAtte
         <Table columns={columns} dataSource={students} rowKey="id" pagination={false} scroll={{ x: 980, y: 520 }} />
       </Card>
 
-      <Card className="attendance-history-card" title="Lịch sử điểm danh gần đây">
-        <div className="attendance-history-row"><span><strong>IELTS 6.5</strong><small>24/09/2026 · 19:45</small></span><Tag color="green">13 có mặt</Tag><Tag color="orange">1 muộn</Tag><Typography.Text type="secondary">Đã lưu lúc 21:18</Typography.Text></div>
-        <div className="attendance-history-row"><span><strong>A2 Giao tiếp</strong><small>23/09/2026 · 18:00</small></span><Tag color="green">17 có mặt</Tag><Tag color="red">1 vắng</Tag><Typography.Text type="secondary">Đã lưu lúc 19:34</Typography.Text></div>
-      </Card>
     </TeacherLayout>
   )
 }

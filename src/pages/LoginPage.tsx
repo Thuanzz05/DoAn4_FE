@@ -8,35 +8,113 @@ import {
   ShieldCheck,
   UserCircle,
 } from '@phosphor-icons/react'
+import { Alert, Input, Modal, Space } from 'antd'
 import heroImage from '../assets/language-center-hero.png'
+import { api, errorMessage, json, saveSession, type AuthSession } from '../api'
 import './LoginPage.css'
 
 type LoginPageProps = {
   onNavigateHome: () => void
   onNavigateRegister: () => void
+  onAuthenticated: (session: AuthSession) => void
 }
 
-function LoginPage({ onNavigateHome, onNavigateRegister }: LoginPageProps) {
+declare global {
+  interface Window {
+    google?: { accounts: { id: { initialize: (options: { client_id: string; callback: (response: { credential: string }) => void }) => void; renderButton: (element: HTMLElement, options: Record<string, string>) => void } } }
+  }
+}
+
+function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState('')
-  const submitTimer = useRef<number | undefined>(undefined)
-
-  useEffect(() => () => window.clearTimeout(submitTimer.current), [])
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const [forgotOpen, setForgotOpen] = useState(false)
+  const [resetCodeSent, setResetCodeSent] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetEmail, setResetEmail] = useState('')
+  const [resetCode, setResetCode] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [devCode, setDevCode] = useState('')
+  const [forgotError, setForgotError] = useState('')
+  const googleButton = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
+    if (!clientId) return
+    const render = () => {
+      if (!window.google || !googleButton.current) return
+      window.google.accounts.id.initialize({ client_id: clientId, callback: async ({ credential }) => {
+        setIsSubmitting(true); setStatus('')
+        try { const session = await api<AuthSession>('/auth/google', json('POST', { credential })); saveSession(session); onAuthenticated(session) }
+        catch (error) { setStatus(errorMessage(error)) }
+        finally { setIsSubmitting(false) }
+      } })
+      googleButton.current.replaceChildren()
+      window.google.accounts.id.renderButton(googleButton.current, { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', shape: 'rectangular', width: '360', locale: 'vi' })
+    }
+    const existing = document.querySelector<HTMLScriptElement>('script[data-google-identity]')
+    if (existing) { if (window.google) render(); else existing.addEventListener('load', render, { once: true }); return }
+    const script = document.createElement('script'); script.src = 'https://accounts.google.com/gsi/client'; script.async = true; script.dataset.googleIdentity = 'true'; script.addEventListener('load', render, { once: true }); document.head.append(script)
+  }, [onAuthenticated])
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setStatus('')
     setIsSubmitting(true)
-    window.clearTimeout(submitTimer.current)
-    submitTimer.current = window.setTimeout(() => {
+    const formData = new FormData(event.currentTarget)
+    try {
+      const session = await api<AuthSession>('/auth/login', json('POST', {
+        account: formData.get('username'),
+        password: formData.get('password'),
+      }))
+      saveSession(session)
+      onAuthenticated(session)
+    } catch (error) {
+      setStatus(errorMessage(error))
+    } finally {
       setIsSubmitting(false)
-      setStatus('API xác thực chưa được kết nối. Giao diện đăng nhập đã sẵn sàng để tích hợp với backend.')
-    }, 650)
+    }
   }
 
-  const handleForgotPassword = () => {
-    setStatus('Vui lòng liên hệ quản trị viên trung tâm để được cấp lại mật khẩu.')
+  const closeForgotPassword = () => {
+    setForgotOpen(false)
+    setResetCodeSent(false)
+    setResetEmail('')
+    setResetCode('')
+    setNewPassword('')
+    setDevCode('')
+    setForgotError('')
+  }
+
+  const handleForgotPassword = async () => {
+    const email = resetEmail.trim()
+    if (!email) { setForgotError('Vui lòng nhập email đã đăng ký.'); return }
+    setResetLoading(true)
+    setForgotError('')
+    try {
+      const result = await api<{ message: string; devCode?: string }>('/auth/forgot-password', json('POST', { email }))
+      setDevCode(result.devCode ?? '')
+      setResetCodeSent(true)
+    } catch (error) {
+      setForgotError(errorMessage(error))
+    } finally {
+      setResetLoading(false)
+    }
+  }
+
+  const handleResetPassword = async () => {
+    if (!resetCode.trim()) { setForgotError('Vui lòng nhập mã xác nhận.'); return }
+    if (newPassword.length < 8) { setForgotError('Mật khẩu mới phải có ít nhất 8 ký tự.'); return }
+    setResetLoading(true)
+    setForgotError('')
+    try {
+      const reset = await api<{ message: string }>('/auth/reset-password', json('POST', { email: resetEmail.trim(), code: resetCode.trim(), newPassword }))
+      setStatus(reset.message)
+      closeForgotPassword()
+    } catch (error) {
+      setForgotError(errorMessage(error))
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   return (
@@ -108,7 +186,7 @@ function LoginPage({ onNavigateHome, onNavigateRegister }: LoginPageProps) {
                   <input type="checkbox" name="remember" />
                   <span>Ghi nhớ đăng nhập</span>
                 </label>
-                <button type="button" onClick={handleForgotPassword}>Quên mật khẩu?</button>
+                <button type="button" onClick={() => setForgotOpen(true)}>Quên mật khẩu?</button>
               </div>
 
               <button className="login-submit" type="submit" disabled={isSubmitting}>
@@ -116,6 +194,8 @@ function LoginPage({ onNavigateHome, onNavigateRegister }: LoginPageProps) {
                 <ArrowRight aria-hidden="true" weight="bold" />
               </button>
             </form>
+
+            {import.meta.env.VITE_GOOGLE_CLIENT_ID && <><div className="login-divider"><span>hoặc</span></div><div className="login-google" ref={googleButton} aria-label="Đăng nhập bằng Google" /></>}
 
             {status && (
               <p className="login-feedback" role="status">
@@ -131,6 +211,33 @@ function LoginPage({ onNavigateHome, onNavigateRegister }: LoginPageProps) {
           </div>
         </section>
       </main>
+      <Modal
+        title={resetCodeSent ? 'Đặt lại mật khẩu' : 'Quên mật khẩu'}
+        open={forgotOpen}
+        okText={resetCodeSent ? 'Đổi mật khẩu' : 'Gửi mã xác nhận'}
+        cancelText="Hủy"
+        confirmLoading={resetLoading}
+        onCancel={closeForgotPassword}
+        onOk={() => void (resetCodeSent ? handleResetPassword() : handleForgotPassword())}
+        destroyOnHidden
+      >
+        <Space orientation="vertical" size="middle" style={{ width: '100%', marginTop: 12 }}>
+          <Input
+            type="email"
+            value={resetEmail}
+            onChange={(event) => setResetEmail(event.target.value)}
+            placeholder="Email đã đăng ký"
+            disabled={resetCodeSent}
+            autoFocus
+          />
+          {resetCodeSent && <>
+            {devCode && <Alert type="info" showIcon title={`Mã kiểm thử: ${devCode}`} />}
+            <Input value={resetCode} onChange={(event) => setResetCode(event.target.value)} placeholder="Mã xác nhận" inputMode="numeric" />
+            <Input.Password value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Mật khẩu mới (ít nhất 8 ký tự)" />
+          </>}
+          {forgotError && <Alert type="error" showIcon title={forgotError} />}
+        </Space>
+      </Modal>
     </div>
   )
 }

@@ -1,29 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Books, CurrencyCircleDollar, GlobeHemisphereWest, MagnifyingGlass, PencilSimple, Plus, Trash, UsersThree } from '@phosphor-icons/react'
 import { Avatar, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Select, Space, Table, Tag, Typography, message } from 'antd'
 import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
+import { api, errorMessage, json } from '../api'
 
 type CourseStatus = 'Đang mở' | 'Tạm ẩn'
 type CourseRecord = { id: number; code: string; name: string; language: string; level: string; sessions: number; tuition: number; linkedClasses: number; status: CourseStatus }
 type CourseForm = Omit<CourseRecord, 'id' | 'linkedClasses'>
 type Props = { onLogout: () => void; onNavigate: (page: AdminPage) => void; onNavigateHome: () => void }
 
-const initialCourses: CourseRecord[] = [
-  { id: 1, code: 'EN-A1-01', name: 'Tiếng Anh A1 căn bản', language: 'Tiếng Anh', level: 'A1', sessions: 24, tuition: 3200000, linkedClasses: 3, status: 'Đang mở' },
-  { id: 2, code: 'EN-IELTS-65', name: 'Luyện thi IELTS 6.5', language: 'Tiếng Anh', level: 'IELTS', sessions: 36, tuition: 6800000, linkedClasses: 4, status: 'Đang mở' },
-  { id: 3, code: 'KO-TOPIK1', name: 'Tiếng Hàn TOPIK I', language: 'Tiếng Hàn', level: 'TOPIK I', sessions: 30, tuition: 4900000, linkedClasses: 2, status: 'Đang mở' },
-  { id: 4, code: 'ZH-HSK3', name: 'Tiếng Trung HSK 3', language: 'Tiếng Trung', level: 'HSK 3', sessions: 30, tuition: 4600000, linkedClasses: 2, status: 'Đang mở' },
-  { id: 5, code: 'JA-N5-01', name: 'Tiếng Nhật JLPT N5', language: 'Tiếng Nhật', level: 'N5', sessions: 32, tuition: 5200000, linkedClasses: 1, status: 'Đang mở' },
-  { id: 6, code: 'FR-A1-01', name: 'Tiếng Pháp A1', language: 'Tiếng Pháp', level: 'A1', sessions: 24, tuition: 3900000, linkedClasses: 0, status: 'Đang mở' },
-  { id: 7, code: 'EN-TOEIC-650', name: 'Luyện thi TOEIC 650+', language: 'Tiếng Anh', level: 'TOEIC', sessions: 28, tuition: 4200000, linkedClasses: 2, status: 'Đang mở' },
-  { id: 8, code: 'KO-GT-01', name: 'Tiếng Hàn giao tiếp', language: 'Tiếng Hàn', level: 'Sơ cấp', sessions: 24, tuition: 3800000, linkedClasses: 0, status: 'Tạm ẩn' },
-]
+type CourseApi = Omit<CourseRecord, 'status' | 'linkedClasses'> & { status: 'dang_mo' | 'tam_an' }
 const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}đ`
 
 function AdminCourses({ onLogout, onNavigate, onNavigateHome }: Props) {
-  const [courses, setCourses] = useState(initialCourses)
+  const [courses, setCourses] = useState<CourseRecord[]>([])
   const [query, setQuery] = useState('')
   const [language, setLanguage] = useState('Tất cả')
   const [editing, setEditing] = useState<CourseRecord | 'new' | null>(null)
@@ -32,19 +24,30 @@ function AdminCourses({ onLogout, onNavigate, onNavigateHome }: Props) {
   const languages = useMemo(() => [...new Set(courses.map((item) => item.language))], [courses])
   const data = useMemo(() => courses.filter((item) => (!query.trim() || [item.name, item.code, item.language, item.level].some((value) => value.toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi')))) && (language === 'Tất cả' || item.language === language)), [courses, language, query])
 
+  const load = async () => {
+    try {
+      const rows = await api<CourseApi[]>('/courses/all')
+      setCourses(rows.map((item) => ({ ...item, linkedClasses: 0, status: item.status === 'dang_mo' ? 'Đang mở' : 'Tạm ẩn' })))
+    } catch (error) { messageApi.error(errorMessage(error)) }
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { void load() }, [])
+
   const openCreate = () => { setEditing('new'); form.setFieldsValue({ code: '', name: '', language: 'Tiếng Anh', level: '', sessions: 24, tuition: 3200000, status: 'Đang mở' }) }
   const openEdit = (course: CourseRecord) => { setEditing(course); form.setFieldsValue(course) }
-  const save = (values: CourseForm) => {
+  const save = async (values: CourseForm) => {
     const code = values.code.trim().toUpperCase()
     if (courses.some((item) => item.code.toUpperCase() === code && item.id !== (typeof editing === 'object' && editing ? editing.id : -1))) { form.setFields([{ name: 'code', errors: ['Mã khóa học đã tồn tại.'] }]); return }
-    if (editing === 'new') setCourses((current) => [{ ...values, code, id: Math.max(...current.map((item) => item.id)) + 1, linkedClasses: 0 }, ...current])
-    else if (editing) setCourses((current) => current.map((item) => item.id === editing.id ? { ...item, ...values, code } : item))
-    messageApi.success(editing === 'new' ? 'Đã thêm khóa học.' : 'Đã cập nhật khóa học.')
-    setEditing(null)
+    try {
+      const body = { ...values, code, status: values.status === 'Đang mở' ? 'dang_mo' : 'tam_an' }
+      await api(editing === 'new' ? '/courses' : `/courses/${editing!.id}`, json(editing === 'new' ? 'POST' : 'PATCH', body))
+      messageApi.success(editing === 'new' ? 'Đã thêm khóa học.' : 'Đã cập nhật khóa học.')
+      setEditing(null); await load()
+    } catch (error) { messageApi.error(errorMessage(error)) }
   }
-  const remove = (course: CourseRecord) => {
-    if (course.linkedClasses > 0) { messageApi.error(`Không thể xóa vì đang có ${course.linkedClasses} lớp liên kết.`); return }
-    setCourses((current) => current.filter((item) => item.id !== course.id)); messageApi.success('Đã xóa khóa học.')
+  const remove = async (course: CourseRecord) => {
+    try { await api(`/courses/${course.id}`, { method: 'DELETE' }); await load(); messageApi.success('Đã xóa khóa học.') }
+    catch (error) { messageApi.error(errorMessage(error)) }
   }
   const columns: TableProps<CourseRecord>['columns'] = [
     { title: 'Khóa học', key: 'course', render: (_, item) => <div className="admin-entity"><Avatar shape="square">{item.language.replace('Tiếng ', '').slice(0, 2).toUpperCase()}</Avatar><div><strong>{item.name}</strong><small>{item.code}</small></div></div> },
@@ -53,7 +56,7 @@ function AdminCourses({ onLogout, onNavigate, onNavigateHome }: Props) {
     { title: 'Học phí', dataIndex: 'tuition', render: (value) => <Typography.Text strong>{money(value)}</Typography.Text> },
     { title: 'Lớp liên kết', dataIndex: 'linkedClasses', render: (value) => `${value} lớp` },
     { title: 'Trạng thái', dataIndex: 'status', render: (value: CourseStatus) => <Tag color={value === 'Đang mở' ? 'green' : 'default'}>{value}</Tag> },
-    { title: '', key: 'actions', width: 92, render: (_, item) => <Space size={4}><Button icon={<PencilSimple />} onClick={() => openEdit(item)} aria-label={`Sửa ${item.name}`} /><Popconfirm title="Xóa khóa học?" description={item.linkedClasses > 0 ? 'Khóa học đang có lớp liên kết.' : item.name} onConfirm={() => remove(item)} okButtonProps={{ danger: true }} disabled={item.linkedClasses > 0}><Button danger icon={<Trash />} onClick={() => item.linkedClasses > 0 && remove(item)} aria-label={`Xóa ${item.name}`} /></Popconfirm></Space> },
+    { title: '', key: 'actions', width: 92, render: (_, item) => <Space size={4}><Button icon={<PencilSimple />} onClick={() => openEdit(item)} aria-label={`Sửa ${item.name}`} /><Popconfirm title="Xóa khóa học?" description={item.name} onConfirm={() => remove(item)} okButtonProps={{ danger: true }}><Button danger icon={<Trash />} aria-label={`Xóa ${item.name}`} /></Popconfirm></Space> },
   ]
   return <AdminLayout activePage="courses" mainId="course-management" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
     {contextHolder}

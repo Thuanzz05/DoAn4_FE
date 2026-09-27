@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,24 +9,22 @@ import {
   Info,
 } from '@phosphor-icons/react'
 import heroImage from '../assets/language-center-hero.png'
+import { api, errorMessage, json, saveSession, type AuthSession } from '../api'
 import './LoginPage.css'
 import './RegisterPage.css'
 
 type RegisterPageProps = {
   onNavigateHome: () => void
   onNavigateLogin: () => void
+  onAuthenticated: (session: AuthSession) => void
 }
 
-function RegisterPage({ onNavigateHome, onNavigateLogin }: RegisterPageProps) {
+function RegisterPage({ onNavigateHome, onNavigateLogin, onAuthenticated }: RegisterPageProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [status, setStatus] = useState('')
   const [isError, setIsError] = useState(false)
-  const submitTimer = useRef<number | undefined>(undefined)
-
-  useEffect(() => () => window.clearTimeout(submitTimer.current), [])
-
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const formData = new FormData(event.currentTarget)
     const password = String(formData.get('password') ?? '')
@@ -41,12 +39,21 @@ function RegisterPage({ onNavigateHome, onNavigateLogin }: RegisterPageProps) {
     setStatus('')
     setIsError(false)
     setIsSubmitting(true)
-    window.clearTimeout(submitTimer.current)
-    submitTimer.current = window.setTimeout(() => {
+    try {
+      const session = await api<AuthSession>('/auth/register', json('POST', {
+        fullName: formData.get('fullName'),
+        email: formData.get('email'),
+        phone: formData.get('phone'),
+        password,
+      }))
+      saveSession(session)
+      onAuthenticated(session)
+    } catch (error) {
+      setIsError(true)
+      setStatus(errorMessage(error))
+    } finally {
       setIsSubmitting(false)
-      setIsError(false)
-      setStatus('Giao diện đăng ký đã sẵn sàng. API tạo tài khoản sẽ được kết nối với backend ở bước tiếp theo.')
-    }, 650)
+    }
   }
 
   return (

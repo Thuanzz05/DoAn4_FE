@@ -21,7 +21,7 @@ type TeacherDashboardProps = {
 }
 
 type ClassRow = {
-  key: string
+  key: number
   name: string
   code: string
   schedule: string
@@ -29,21 +29,16 @@ type ClassRow = {
   attendance: number
   nextTask: string
 }
-
-const classes: ClassRow[] = [
-  { key: '1', name: 'A2 Giao tiếp', code: 'TA-A2-04', schedule: 'T2 · T4 · 18:00', students: 18, attendance: 82, nextTask: 'Điểm danh' },
-  { key: '2', name: 'IELTS 6.5', code: 'IELTS-65-02', schedule: 'T3 · T5 · 19:45', students: 14, attendance: 76, nextTask: 'Nhập điểm' },
-  { key: '3', name: 'B1 Tổng quát', code: 'TA-B1-07', schedule: 'T7 · CN · 08:00', students: 20, attendance: 91, nextTask: 'Xem lớp' },
-]
-
-const todaySessions = [
-  { time: '18:00–19:30', name: 'A2 Giao tiếp', room: 'P.201', students: 18, status: 'Sắp diễn ra', color: 'blue' },
-  { time: '19:45–21:15', name: 'IELTS 6.5', room: 'P.302', students: 14, status: 'Đổi phòng', color: 'orange' },
-]
+type DashboardApi = { classes: number; students: number; sessionsThisWeek: number; attendanceDue: number; todaySessions: Array<{ id: number; className: string; startsAt: string; endsAt: string; roomCode: string; status: string }> }
+type ClassApi = { id: number; name: string; code: string; weeklySchedule: string | null; students: number }
+import { api, errorMessage } from '../api'
 
 function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashboardProps) {
   const [messageApi, contextHolder] = message.useMessage()
-  const comingSoon = (label: string) => messageApi.info(`${label} sẽ được thực hiện ở trang tiếp theo.`)
+  const [dashboard, setDashboard] = useState<DashboardApi>({ classes: 0, students: 0, sessionsThisWeek: 0, attendanceDue: 0, todaySessions: [] })
+  const [classes, setClasses] = useState<ClassRow[]>([])
+  useEffect(() => { Promise.all([api<DashboardApi>('/teacher/dashboard'), api<ClassApi[]>('/teacher/classes')]).then(([summary, rows]) => { setDashboard(summary); setClasses(rows.map((item) => ({ key: item.id, name: item.name, code: item.code, schedule: item.weeklySchedule?.split(',').map((slot) => { const [day, start] = slot.split('|'); return `T${day} · ${start}` }).join(', ') ?? 'Chưa xếp lịch', students: Number(item.students), attendance: 0, nextTask: 'Điểm danh' }))) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  const todaySessions = dashboard.todaySessions.map((item) => ({ id: item.id, time: `${new Date(item.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`, name: item.className, room: item.roomCode, status: item.status === 'da_hoc' ? 'Đã hoàn tất' : 'Sắp diễn ra', color: item.status === 'da_hoc' ? 'green' : 'blue' }))
 
   const columns: ColumnsType<ClassRow> = [
     {
@@ -62,7 +57,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
       title: '',
       key: 'action',
       align: 'right',
-      render: (_, record) => <Button type="link" onClick={() => record.nextTask === 'Nhập điểm' ? onNavigate('teacher-grades') : record.nextTask === 'Điểm danh' ? onNavigate('teacher-attendance') : comingSoon(record.nextTask)}>{record.nextTask}<ArrowRight /></Button>,
+      render: (_, record) => <Button type="link" onClick={() => record.nextTask === 'Nhập điểm' ? onNavigate('teacher-grades') : onNavigate('teacher-attendance')}>{record.nextTask}<ArrowRight /></Button>,
     },
   ]
 
@@ -77,13 +72,13 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
       />
 
       <AdminSummary items={[
-        { label: 'Lớp phụ trách', value: 3, detail: '52 học viên đang theo học', icon: <UsersThree weight="duotone" /> },
-        { label: 'Buổi dạy tuần này', value: 7, detail: '2 buổi trong hôm nay', icon: <CalendarBlank weight="duotone" /> },
-        { label: 'Chưa điểm danh', value: 2, detail: 'Cần hoàn tất trong hôm nay', icon: <ClipboardText weight="duotone" />, tone: 'danger' },
-        { label: 'Bảng điểm cần nhập', value: 1, detail: 'Hạn cập nhật 26/09', icon: <Exam weight="duotone" /> },
+        { label: 'Lớp phụ trách', value: Number(dashboard.classes), detail: `${dashboard.students} học viên đang theo học`, icon: <UsersThree weight="duotone" /> },
+        { label: 'Buổi dạy tuần này', value: Number(dashboard.sessionsThisWeek), detail: `${todaySessions.length} buổi trong hôm nay`, icon: <CalendarBlank weight="duotone" /> },
+        { label: 'Chưa điểm danh', value: Number(dashboard.attendanceDue), detail: 'Buổi đã qua chưa hoàn tất', icon: <ClipboardText weight="duotone" />, tone: 'danger' },
+        { label: 'Bảng điểm', value: classes.length, detail: 'Theo các lớp được phân công', icon: <Exam weight="duotone" /> },
       ]} />
 
-      <Alert className="teacher-alert" type="warning" showIcon title="Thay đổi lịch dạy" description="Lớp IELTS 6.5 tối nay chuyển sang P.302. Danh sách học viên không thay đổi." />
+      <Alert className="teacher-alert" type="info" showIcon title="Dữ liệu giảng dạy đã đồng bộ" description="Lịch, sĩ số và công việc được lấy trực tiếp từ hệ thống." />
 
       <Row gutter={[16, 16]} className="teacher-dashboard-grid">
         <Col xs={24} xl={15}>
@@ -92,7 +87,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
               {todaySessions.map((session) => (
                 <Flex className="teacher-session" align="center" gap={16} key={session.time} wrap>
                   <div className="teacher-session-time"><Clock weight="duotone" /><strong>{session.time}</strong></div>
-                  <div className="teacher-session-info"><Typography.Text strong>{session.name}</Typography.Text><Typography.Text type="secondary"><MapPin />{session.room} · {session.students} học viên</Typography.Text></div>
+                  <div className="teacher-session-info"><Typography.Text strong>{session.name}</Typography.Text><Typography.Text type="secondary"><MapPin />{session.room}</Typography.Text></div>
                   <Tag color={session.color}>{session.status}</Tag>
                   <Button onClick={() => onNavigate('teacher-attendance')}>Mở lớp</Button>
                 </Flex>
@@ -102,19 +97,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
         </Col>
 
         <Col xs={24} xl={9}>
-          <Card title="Việc cần hoàn tất" className="teacher-tasks-card">
-            <button type="button" onClick={() => onNavigate('teacher-attendance')}>
-              <span className="teacher-task-icon danger"><ClipboardText weight="duotone" /></span>
-              <span><strong>Hoàn tất điểm danh</strong><small>B1 Tổng quát · Buổi 17/09</small></span>
-              <Tag color="red">Quá hạn</Tag>
-            </button>
-            <button type="button" onClick={() => onNavigate('teacher-grades')}>
-              <span className="teacher-task-icon warning"><Exam weight="duotone" /></span>
-              <span><strong>Nhập điểm bốn kỹ năng</strong><small>IELTS 6.5 · Hạn 26/09</small></span>
-              <ArrowRight />
-            </button>
-            <div className="teacher-task-done"><CheckCircle weight="fill" /><span><strong>Đã cập nhật giáo án tuần 4</strong><small>A2 Giao tiếp</small></span></div>
-          </Card>
+          <Card title="Việc cần hoàn tất" className="teacher-tasks-card"><button type="button" onClick={() => onNavigate('teacher-attendance')}><span className="teacher-task-icon danger"><ClipboardText weight="duotone" /></span><span><strong>Hoàn tất điểm danh</strong><small>{dashboard.attendanceDue} buổi đang chờ</small></span><Tag color={Number(dashboard.attendanceDue) ? 'red' : 'green'}>{Number(dashboard.attendanceDue) ? 'Cần xử lý' : 'Đã xong'}</Tag></button><button type="button" onClick={() => onNavigate('teacher-grades')}><span className="teacher-task-icon warning"><Exam weight="duotone" /></span><span><strong>Nhập điểm bốn kỹ năng</strong><small>Chọn lớp và kỳ thi</small></span><ArrowRight /></button><div className="teacher-task-done"><CheckCircle weight="fill" /><span><strong>Dữ liệu được lưu trên hệ thống</strong></span></div></Card>
         </Col>
       </Row>
 
@@ -126,3 +109,4 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
 }
 
 export default TeacherDashboard
+import { useEffect, useState } from 'react'
