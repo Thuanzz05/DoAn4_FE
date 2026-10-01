@@ -74,5 +74,6 @@ export const json = (method: string, body?: unknown): RequestInit => ({
 })
 
 export function errorMessage(error: unknown): string {
+  if (error instanceof TypeError) return 'Không thể kết nối máy chủ'
   return error instanceof Error ? error.message : 'Đã xảy ra lỗi, vui lòng thử lại'
 }

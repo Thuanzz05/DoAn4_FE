@@ -1,0 +1,30 @@
+.profile-shell { min-height: 100vh; color: #12332f; background: #eef3ee; }
+.profile-header { display: flex; min-height: 76px; align-items: center; justify-content: space-between; width: min(1180px, calc(100% - 48px)); margin: 0 auto; border-bottom: 1px solid #cbd8ce; }
+.profile-header > button { display: inline-flex; align-items: center; gap: 9px; padding: 10px 0; border: 0; color: #385a53; background: transparent; font: 700 0.78rem Manrope, sans-serif; cursor: pointer; }
+.profile-header > button svg { width: 17px; height: 17px; }
+.profile-main { width: min(1040px, calc(100% - 48px)); margin: 0 auto; padding: 64px 0 90px; }
+.profile-identity { display: grid; grid-template-columns: auto 1fr auto; gap: 22px; align-items: center; padding: 0 0 34px; border-bottom: 1px solid #cbd8ce; }
+.profile-identity .ant-avatar { color: #f5faf6; background: #12332f; font-size: 1.5rem; }
+.profile-identity h1.ant-typography { margin: 2px 0 10px; font-family: Newsreader, Georgia, serif; font-size: clamp(2.4rem, 5vw, 4.1rem); font-weight: 600; line-height: 1; letter-spacing: -0.04em; }
+.profile-state { display: flex; align-items: center; gap: 8px; padding: 10px 13px; border: 1px solid #b8cdbd; border-radius: 999px; color: #397359; background: #f8fbf8; font-size: 0.7rem; font-weight: 700; }
+.profile-state svg { width: 17px; height: 17px; }
+.profile-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; margin-top: 30px; }
+.profile-security { display: grid; gap: 24px; }
+.profile-card { border-color: #d1ddd4; box-shadow: 0 18px 50px rgba(18, 51, 47, 0.06); }
+.profile-card .ant-card-head-title > span { display: flex; align-items: center; gap: 9px; }
+.profile-card .ant-card-head-title svg { width: 21px; height: 21px; }
+.profile-card .ant-form-item { margin-bottom: 18px; }
+.google-card .ant-card-body { display: grid; gap: 16px; }
+.google-card .ant-alert { align-items: flex-start; }
+.google-link-loading { pointer-events: none; opacity: 0.55; }
+
+@media (max-width: 760px) {
+  .profile-header, .profile-main { width: calc(100% - 28px); }
+  .profile-header .wordmark small { display: none; }
+  .profile-header > button { max-width: 150px; text-align: left; }
+  .profile-main { padding-top: 38px; }
+  .profile-identity { grid-template-columns: auto 1fr; gap: 14px; }
+  .profile-identity .ant-avatar { width: 58px !important; height: 58px !important; }
+  .profile-state { grid-column: 1 / -1; justify-self: start; }
+  .profile-grid { grid-template-columns: 1fr; }
+}

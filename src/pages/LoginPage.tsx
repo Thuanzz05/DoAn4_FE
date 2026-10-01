@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { FormEvent, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,18 +11,13 @@ import {
 import { Alert, Input, Modal, Space } from 'antd'
 import heroImage from '../assets/language-center-hero.png'
 import { api, errorMessage, json, saveSession, type AuthSession } from '../api'
+import GoogleIdentityButton from '../GoogleIdentityButton'
 import './LoginPage.css'
 
 type LoginPageProps = {
   onNavigateHome: () => void
   onNavigateRegister: () => void
   onAuthenticated: (session: AuthSession) => void
-}
-
-declare global {
-  interface Window {
-    google?: { accounts: { id: { initialize: (options: { client_id: string; callback: (response: { credential: string }) => void }) => void; renderButton: (element: HTMLElement, options: Record<string, string>) => void } } }
-  }
 }
 
 function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: LoginPageProps) {
@@ -37,25 +32,12 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
   const [newPassword, setNewPassword] = useState('')
   const [devCode, setDevCode] = useState('')
   const [forgotError, setForgotError] = useState('')
-  const googleButton = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID
-    if (!clientId) return
-    const render = () => {
-      if (!window.google || !googleButton.current) return
-      window.google.accounts.id.initialize({ client_id: clientId, callback: async ({ credential }) => {
-        setIsSubmitting(true); setStatus('')
-        try { const session = await api<AuthSession>('/auth/google', json('POST', { credential })); saveSession(session); onAuthenticated(session) }
-        catch (error) { setStatus(errorMessage(error)) }
-        finally { setIsSubmitting(false) }
-      } })
-      googleButton.current.replaceChildren()
-      window.google.accounts.id.renderButton(googleButton.current, { type: 'standard', theme: 'outline', size: 'large', text: 'continue_with', shape: 'rectangular', width: '360', locale: 'vi' })
-    }
-    const existing = document.querySelector<HTMLScriptElement>('script[data-google-identity]')
-    if (existing) { if (window.google) render(); else existing.addEventListener('load', render, { once: true }); return }
-    const script = document.createElement('script'); script.src = 'https://accounts.google.com/gsi/client'; script.async = true; script.dataset.googleIdentity = 'true'; script.addEventListener('load', render, { once: true }); document.head.append(script)
-  }, [onAuthenticated])
+  const handleGoogle = async (credential: string) => {
+    setIsSubmitting(true); setStatus('')
+    try { const session = await api<AuthSession>('/auth/google', json('POST', { credential })); saveSession(session); onAuthenticated(session) }
+    catch (error) { setStatus(errorMessage(error)) }
+    finally { setIsSubmitting(false) }
+  }
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setStatus('')
@@ -195,7 +177,7 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
               </button>
             </form>
 
-            {import.meta.env.VITE_GOOGLE_CLIENT_ID && <><div className="login-divider"><span>hoặc</span></div><div className="login-google" ref={googleButton} aria-label="Đăng nhập bằng Google" /></>}
+            {import.meta.env.VITE_GOOGLE_CLIENT_ID && <><div className="login-divider"><span>hoặc</span></div><GoogleIdentityButton className="login-google" onCredential={handleGoogle} /></>}
 
             {status && (
               <p className="login-feedback" role="status">

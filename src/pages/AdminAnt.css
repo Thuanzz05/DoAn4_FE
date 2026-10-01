@@ -8,7 +8,8 @@
 .ant-admin-nav .ant-menu-item { height: 44px; margin-block: 4px; font-size: 0.75rem; font-weight: 700; }
 .ant-admin-nav .ant-menu-item svg { width: 19px; height: 19px; }
 .ant-admin-account { display: grid; height: 92px; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 18px; border-top: 1px solid rgba(255,255,255,0.12); color: #eff6f1; }
-.ant-admin-account > div { display: flex; min-width: 0; flex-direction: column; }
+.ant-admin-profile-link { display: flex; min-width: 0; flex-direction: column; color: inherit; text-decoration: none; }
+.ant-admin-profile-link:hover strong { text-decoration: underline; text-underline-offset: 3px; }
 .ant-admin-account strong { font-size: 0.7rem; }
 .ant-admin-account span { margin-top: 4px; color: #8eaaa0; font-size: 0.58rem; }
 .ant-admin-account .ant-btn { color: #a9c0b8; }

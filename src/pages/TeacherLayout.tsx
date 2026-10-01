@@ -43,7 +43,7 @@ function TeacherLayout({ activePage, children, mainId, onLogout, onNavigate, onN
   const navigation = <Menu mode="inline" theme="dark" selectedKeys={[activePage]} items={navItems} onClick={({ key }) => { setMenuOpen(false); onNavigate(key as TeacherPage) }} />
   const brand = <button className="ant-admin-brand" type="button" onClick={onNavigateHome}><strong>Trung tâm</strong><span>Không gian giáo viên</span></button>
   const initials = user?.fullName.split(' ').slice(-2).map((part) => part[0]).join('').toUpperCase() || 'GV'
-  const account = <div className="ant-admin-account"><Avatar shape="square">{initials}</Avatar><div><strong>{user?.fullName ?? 'Giáo viên'}</strong><span>{user?.teachingLanguage ?? user?.code ?? 'Giảng dạy'}</span></div><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div>
+  const account = <div className="ant-admin-account"><Avatar shape="square">{initials}</Avatar><a className="ant-admin-profile-link" href="/profile"><strong>{user?.fullName ?? 'Giáo viên'}</strong><span>{user?.teachingLanguage ?? user?.code ?? 'Giảng dạy'}</span></a><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div>
 
   return (
     <ConfigProvider theme={workspaceTheme}>

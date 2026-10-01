@@ -35,11 +35,13 @@ import StudentInvoices from './pages/StudentInvoices'
 import StudentCertificates from './pages/StudentCertificates'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ProfilePage from './pages/ProfilePage'
+import CourseAdvisor from './CourseAdvisor'
 import { api, clearSession, getSession, type AuthRole, type AuthSession } from './api'
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student' | 'student-schedule' | 'student-results' | 'student-invoices' | 'student-certificates'
+type Page = 'home' | 'login' | 'register' | 'profile' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student' | 'student-schedule' | 'student-results' | 'student-invoices' | 'student-certificates'
 
 const privateRole = (page: Page): AuthRole | null => {
   if (['admin', 'students', 'courses', 'classes', 'teachers', 'schedule', 'invoices', 'certificates', 'reports'].includes(page)) return 'quan_tri'
@@ -54,6 +56,7 @@ const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
   if (path === '/login') return 'login'
   if (path === '/register') return 'register'
+  if (path === '/profile') return 'profile'
   if (path === '/admin') return 'admin'
   if (path === '/admin/students') return 'students'
   if (path === '/admin/courses') return 'courses'
@@ -131,7 +134,7 @@ function App() {
 
   useEffect(() => {
     const required = privateRole(page)
-    if (required && session?.user.role !== required) {
+    if ((page === 'profile' && !session) || (required && session?.user.role !== required)) {
       window.history.replaceState({}, '', '/login')
       setPage('login')
     }
@@ -142,6 +145,8 @@ function App() {
       ? 'Đăng nhập | Trung tâm'
       : page === 'register'
         ? 'Đăng ký học viên | Trung tâm'
+        : page === 'profile'
+          ? 'Hồ sơ cá nhân | Trung tâm'
         : page === 'admin'
           ? 'Tổng quan quản trị | Trung tâm'
           : page === 'students'
@@ -250,6 +255,10 @@ function App() {
 
   if (page === 'register') {
     return <RegisterPage onNavigateHome={() => navigate('home')} onNavigateLogin={() => navigate('login')} onAuthenticated={authenticated} />
+  }
+
+  if (page === 'profile' && session) {
+    return <ProfilePage onBack={() => navigate(roleHome[session.user.role])} onSignedOut={() => { setSession(null); navigate('login') }} />
   }
 
   if (page === 'admin') {
@@ -444,6 +453,8 @@ function App() {
         <p>Đồ án xây dựng hệ thống quản lý trung tâm ngoại ngữ trên nền tảng web.</p>
         <button type="button" onClick={openLogin}>Đăng nhập</button>
       </footer>
+
+      <CourseAdvisor />
 
     </div>
   )

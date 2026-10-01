@@ -52,10 +52,10 @@ function AdminLayout({ activePage, children, mainId, onLogout, onNavigate, onNav
   return (
     <ConfigProvider theme={workspaceTheme}>
       <Layout className="ant-admin-shell">
-        {desktop && <Layout.Sider className="ant-admin-sider" width={248}>{brand}<div className="ant-admin-nav">{navigation}</div><div className="ant-admin-account"><Avatar shape="square">{initials}</Avatar><div><strong>{user?.fullName ?? 'Quản trị viên'}</strong><span>{user?.code ?? 'Quản trị hệ thống'}</span></div><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div></Layout.Sider>}
+        {desktop && <Layout.Sider className="ant-admin-sider" width={248}>{brand}<div className="ant-admin-nav">{navigation}</div><div className="ant-admin-account"><Avatar shape="square">{initials}</Avatar><a className="ant-admin-profile-link" href="/profile"><strong>{user?.fullName ?? 'Quản trị viên'}</strong><span>{user?.code ?? 'Quản trị hệ thống'}</span></a><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div></Layout.Sider>}
 
         <Drawer className="ant-admin-menu-drawer" placement="left" size={280} open={!desktop && menuOpen} onClose={() => setMenuOpen(false)} closable={false} styles={{ body: { padding: 0, background: '#0b2d29' } }}>
-          {brand}<div className="ant-admin-nav">{navigation}</div><div className="ant-admin-account"><Avatar shape="square">{initials}</Avatar><div><strong>{user?.fullName ?? 'Quản trị viên'}</strong><span>{user?.code ?? 'Quản trị hệ thống'}</span></div><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div>
+          {brand}<div className="ant-admin-nav">{navigation}</div><div className="ant-admin-account"><Avatar shape="square">{initials}</Avatar><a className="ant-admin-profile-link" href="/profile"><strong>{user?.fullName ?? 'Quản trị viên'}</strong><span>{user?.code ?? 'Quản trị hệ thống'}</span></a><Button type="text" icon={<SignOut />} onClick={onLogout} aria-label="Đăng xuất" /></div>
         </Drawer>
 
         <Layout>
