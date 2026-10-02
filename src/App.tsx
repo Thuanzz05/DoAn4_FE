@@ -33,6 +33,7 @@ import StudentSchedule from './pages/StudentSchedule'
 import StudentResults from './pages/StudentResults'
 import StudentInvoices from './pages/StudentInvoices'
 import StudentCertificates from './pages/StudentCertificates'
+import CertificateVerification from './pages/CertificateVerification'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ProfilePage from './pages/ProfilePage'
@@ -41,7 +42,7 @@ import { api, clearSession, getSession, type AuthRole, type AuthSession } from '
 import './App.css'
 
 type Role = 'admin' | 'teacher' | 'student'
-type Page = 'home' | 'login' | 'register' | 'profile' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student' | 'student-schedule' | 'student-results' | 'student-invoices' | 'student-certificates'
+type Page = 'home' | 'login' | 'register' | 'verify-certificate' | 'profile' | 'admin' | 'students' | 'courses' | 'classes' | 'teachers' | 'schedule' | 'invoices' | 'certificates' | 'reports' | 'teacher' | 'teacher-schedule' | 'teacher-attendance' | 'teacher-grades' | 'student' | 'student-schedule' | 'student-results' | 'student-invoices' | 'student-certificates'
 
 const privateRole = (page: Page): AuthRole | null => {
   if (['admin', 'students', 'courses', 'classes', 'teachers', 'schedule', 'invoices', 'certificates', 'reports'].includes(page)) return 'quan_tri'
@@ -56,6 +57,7 @@ const getCurrentPage = (): Page => {
   const path = window.location.pathname.replace(/\/+$/, '')
   if (path === '/login') return 'login'
   if (path === '/register') return 'register'
+  if (path === '/verify-certificate') return 'verify-certificate'
   if (path === '/profile') return 'profile'
   if (path === '/admin') return 'admin'
   if (path === '/admin/students') return 'students'
@@ -145,6 +147,8 @@ function App() {
       ? 'Đăng nhập | Trung tâm'
       : page === 'register'
         ? 'Đăng ký học viên | Trung tâm'
+        : page === 'verify-certificate'
+          ? 'Xác thực chứng chỉ | Trung tâm'
         : page === 'profile'
           ? 'Hồ sơ cá nhân | Trung tâm'
         : page === 'admin'
@@ -191,6 +195,8 @@ function App() {
       ? '/login'
       : nextPage === 'register'
         ? '/register'
+        : nextPage === 'verify-certificate'
+          ? '/verify-certificate'
         : nextPage === 'admin'
           ? '/admin'
           : nextPage === 'students'
@@ -255,6 +261,10 @@ function App() {
 
   if (page === 'register') {
     return <RegisterPage onNavigateHome={() => navigate('home')} onNavigateLogin={() => navigate('login')} onAuthenticated={authenticated} />
+  }
+
+  if (page === 'verify-certificate') {
+    return <CertificateVerification onHome={() => navigate('home')} />
   }
 
   if (page === 'profile' && session) {

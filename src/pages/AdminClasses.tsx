@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarBlank, CaretRight, MagnifyingGlass, MapPin, PencilSimple, Plus, Student, Trash, UsersThree } from '@phosphor-icons/react'
+import { CalendarBlank, CaretRight, CheckCircle, MagnifyingGlass, MapPin, PencilSimple, Play, Plus, Student, Trash, UsersThree } from '@phosphor-icons/react'
 import { Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Progress, Select, Space, Table, Tag, Typography, message } from 'antd'
 import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
@@ -7,10 +7,10 @@ import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import { api, errorMessage, json } from '../api'
 
 type ClassStatus = 'Đang học' | 'Sắp khai giảng' | 'Đã kết thúc' | 'Đã hủy'
-type ClassRecord = { id: number; code: string; name: string; course: string; courseId: number; startDate: string; sessions: number; capacity: number; enrolled: number; teacher: string; teacherId: number | null; schedule: string; room: string; status: ClassStatus; progress: number }
+type ClassRecord = { id: number; code: string; name: string; course: string; courseId: number; startDate: string; sessions: number; generatedSessions: number; completedSessions: number; capacity: number; enrolled: number; teacher: string; teacherId: number | null; schedule: string; room: string; status: ClassStatus; progress: number }
 type ClassForm = Pick<ClassRecord, 'code' | 'name' | 'courseId' | 'teacherId' | 'startDate' | 'sessions' | 'capacity'>
 type Props = { onLogout: () => void; onNavigate: (page: AdminPage) => void; onNavigateHome: () => void }
-type ClassApi = { id: number; code: string; name: string; courseId: number; courseName: string; teacherId: number | null; teacherName: string | null; startDate: string; sessions: number; capacity: number; status: string; enrolled: number }
+type ClassApi = { id: number; code: string; name: string; courseId: number; courseName: string; teacherId: number | null; teacherName: string | null; startDate: string; sessions: number; generatedSessions: number; completedSessions: number; capacity: number; status: string; enrolled: number }
 type CourseOption = { id: number; name: string; sessions: number }
 type TeacherOption = { id: number; fullName: string }
 type ScheduleApi = { classId: number; roomCode: string; dayOfWeek: number; startTime: string }
@@ -35,7 +35,7 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
       const [rows, courseRows, teacherRows, schedules] = await Promise.all([api<ClassApi[]>('/classes'), api<CourseOption[]>('/courses/all'), api<TeacherOption[]>('/users?role=giao_vien'), api<ScheduleApi[]>('/schedules')])
       setCourses(courseRows); setTeachers(teacherRows)
       const statusMap: Record<string, ClassStatus> = { sap_khai_giang: 'Sắp khai giảng', dang_hoc: 'Đang học', da_ket_thuc: 'Đã kết thúc', da_huy: 'Đã hủy' }
-      setClasses(rows.map((item) => { const slots = schedules.filter((slot) => slot.classId === item.id); return { id: item.id, code: item.code, name: item.name, course: item.courseName, courseId: item.courseId, startDate: String(item.startDate).slice(0, 10), sessions: Number(item.sessions), capacity: Number(item.capacity), enrolled: Number(item.enrolled), teacher: item.teacherName ?? 'Chưa phân công', teacherId: item.teacherId, schedule: slots.length ? slots.map((slot) => `T${slot.dayOfWeek} · ${slot.startTime.slice(0, 5)}`).join(', ') : 'Chưa xếp lịch', room: slots.map((slot) => slot.roomCode).join(', ') || '—', status: statusMap[item.status] ?? 'Sắp khai giảng', progress: item.status === 'da_ket_thuc' ? 100 : 0 } }))
+      setClasses(rows.map((item) => { const slots = schedules.filter((slot) => slot.classId === item.id); const total = Number(item.sessions); const completed = Number(item.completedSessions); return { id: item.id, code: item.code, name: item.name, course: item.courseName, courseId: item.courseId, startDate: String(item.startDate).slice(0, 10), sessions: total, generatedSessions: Number(item.generatedSessions), completedSessions: completed, capacity: Number(item.capacity), enrolled: Number(item.enrolled), teacher: item.teacherName ?? 'Chưa phân công', teacherId: item.teacherId, schedule: slots.length ? slots.map((slot) => `T${slot.dayOfWeek} · ${slot.startTime.slice(0, 5)}`).join(', ') : 'Chưa xếp lịch', room: slots.map((slot) => slot.roomCode).join(', ') || '—', status: statusMap[item.status] ?? 'Sắp khai giảng', progress: total ? Math.round(completed * 100 / total) : 0 } }))
     } catch (error) { messageApi.error(errorMessage(error)) }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -69,7 +69,23 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
       onOk: async () => {
         try {
           const result = await api<{ created: number }>(`/classes/${item.id}/generate-sessions`, json('POST'))
-          messageApi.success(`Đã tạo ${result.created} buổi học.`)
+          await load(); setSelected(null); messageApi.success(`Đã tạo ${result.created} buổi học.`)
+        } catch (error) { messageApi.error(errorMessage(error)) }
+      },
+    })
+  }
+  const changeLifecycle = (item: ClassRecord, action: 'start' | 'complete') => {
+    const completing = action === 'complete'
+    modalApi.confirm({
+      title: completing ? 'Kết thúc lớp học?' : 'Bắt đầu lớp học?',
+      content: completing
+        ? 'Hệ thống sẽ chuyển các học viên đang học sang trạng thái hoàn thành để xét chứng chỉ.'
+        : `Lớp phải có đủ ${item.sessions} buổi học đã được tạo.`,
+      okText: completing ? 'Kết thúc lớp' : 'Bắt đầu lớp',
+      onOk: async () => {
+        try {
+          await api(`/classes/${item.id}/${action}`, json('POST'))
+          setSelected(null); await load(); messageApi.success(completing ? 'Đã kết thúc lớp học.' : 'Đã bắt đầu lớp học.')
         } catch (error) { messageApi.error(errorMessage(error)) }
       },
     })
@@ -94,7 +110,7 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
     ]} />
     <Card className="admin-table-card" title="Danh sách lớp học" extra={<Space wrap><Input allowClear prefix={<MagnifyingGlass />} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tên, mã, khóa hoặc giáo viên" /><Select value={status} onChange={setStatus} options={['Tất cả', 'Đang học', 'Sắp khai giảng', 'Đã kết thúc', 'Đã hủy'].map((value) => ({ value, label: value }))} /></Space>}><Table rowKey="code" columns={columns} dataSource={data} scroll={{ x: 1000 }} pagination={{ pageSize: 6, showTotal: (total) => `${total} lớp học` }} locale={{ emptyText: 'Không tìm thấy lớp phù hợp' }} /></Card>
     <Drawer size={440} title="Thông tin lớp học" open={Boolean(selected)} onClose={() => setSelected(null)}>
-      {selected && <><Flex align="center" gap={14}><Avatar size={54} shape="square">{selected.name.slice(0, 2).toUpperCase()}</Avatar><div><Typography.Title className="admin-drawer-title" level={3}>{selected.name}</Typography.Title><Typography.Text type="secondary">{selected.code}</Typography.Text></div></Flex><Descriptions bordered column={1} size="small" style={{ marginTop: 24 }} items={[{ key: 'course', label: 'Khóa học', children: selected.course }, { key: 'start', label: 'Ngày khai giảng', children: displayDate(selected.startDate) }, { key: 'sessions', label: 'Số buổi', children: selected.sessions }, { key: 'teacher', label: 'Giáo viên', children: selected.teacher }, { key: 'schedule', label: 'Lịch học', children: selected.schedule }, { key: 'room', label: 'Phòng học', children: selected.room }, { key: 'students', label: 'Sĩ số', children: `${selected.enrolled}/${selected.capacity} học viên` }, { key: 'progress', label: 'Tiến độ', children: `${selected.progress}%` }]} /><Card size="small" className="admin-drawer-status"><Flex justify="space-between"><Typography.Text type="secondary">Trạng thái lớp</Typography.Text><Tag color={statusColor[selected.status]}>{selected.status}</Tag></Flex></Card>{selected.status !== 'Đã hủy' && selected.status !== 'Đã kết thúc' && <Space orientation="vertical" style={{ width: '100%', marginTop: 18 }}><Button block type="primary" icon={<CalendarBlank />} disabled={!selected.teacherId || selected.schedule === 'Chưa xếp lịch'} onClick={() => generateSessions(selected)}>Tạo các buổi học</Button><Button block icon={<PencilSimple />} onClick={() => openEdit(selected)}>Sửa thông tin lớp</Button><Button block danger icon={<Trash />} onClick={() => cancel(selected)}>Hủy lớp học</Button></Space>}</>}
+      {selected && <><Flex align="center" gap={14}><Avatar size={54} shape="square">{selected.name.slice(0, 2).toUpperCase()}</Avatar><div><Typography.Title className="admin-drawer-title" level={3}>{selected.name}</Typography.Title><Typography.Text type="secondary">{selected.code}</Typography.Text></div></Flex><Descriptions bordered column={1} size="small" style={{ marginTop: 24 }} items={[{ key: 'course', label: 'Khóa học', children: selected.course }, { key: 'start', label: 'Ngày khai giảng', children: displayDate(selected.startDate) }, { key: 'sessions', label: 'Buổi học', children: `${selected.completedSessions}/${selected.generatedSessions}/${selected.sessions} hoàn tất/đã tạo/kế hoạch` }, { key: 'teacher', label: 'Giáo viên', children: selected.teacher }, { key: 'schedule', label: 'Lịch học', children: selected.schedule }, { key: 'room', label: 'Phòng học', children: selected.room }, { key: 'students', label: 'Sĩ số', children: `${selected.enrolled}/${selected.capacity} học viên` }, { key: 'progress', label: 'Tiến độ', children: `${selected.progress}%` }]} /><Card size="small" className="admin-drawer-status"><Flex justify="space-between"><Typography.Text type="secondary">Trạng thái lớp</Typography.Text><Tag color={statusColor[selected.status]}>{selected.status}</Tag></Flex></Card>{selected.status !== 'Đã hủy' && selected.status !== 'Đã kết thúc' && <Space orientation="vertical" style={{ width: '100%', marginTop: 18 }}><Button block icon={<CalendarBlank />} disabled={!selected.teacherId || selected.schedule === 'Chưa xếp lịch' || selected.generatedSessions > 0} onClick={() => generateSessions(selected)}>{selected.generatedSessions ? `Đã tạo ${selected.generatedSessions} buổi học` : 'Tạo các buổi học'}</Button>{selected.status === 'Sắp khai giảng' && <Button block type="primary" icon={<Play />} disabled={selected.generatedSessions !== selected.sessions} onClick={() => changeLifecycle(selected, 'start')}>Bắt đầu lớp học</Button>}{selected.status === 'Đang học' && <Button block type="primary" icon={<CheckCircle />} disabled={selected.completedSessions !== selected.sessions} onClick={() => changeLifecycle(selected, 'complete')}>Kết thúc lớp học</Button>}<Button block icon={<PencilSimple />} onClick={() => openEdit(selected)}>Sửa thông tin lớp</Button><Button block danger icon={<Trash />} onClick={() => cancel(selected)}>Hủy lớp học</Button></Space>}</>}
     </Drawer>
     <Modal title={editing === 'new' ? 'Tạo lớp học' : 'Sửa thông tin lớp'} open={editing !== null} onCancel={() => setEditing(null)} onOk={() => form.submit()} okText={editing === 'new' ? 'Tạo lớp' : 'Cập nhật'} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={save} style={{ marginTop: 20 }}>

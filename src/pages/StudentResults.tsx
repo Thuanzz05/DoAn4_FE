@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   CalendarCheck,
   Certificate,
@@ -6,7 +7,7 @@ import {
   ClockCounterClockwise,
   Receipt,
 } from '@phosphor-icons/react'
-import { Alert, Card, Col, Empty, Flex, Progress, Row, Table, Tabs, Tag, Typography, message } from 'antd'
+import { Alert, Card, Col, Empty, Flex, Progress, Row, Select, Table, Tabs, Tag, Typography, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import StudentLayout, { type StudentPage } from './StudentLayout'
@@ -21,7 +22,8 @@ type StudentResultsProps = {
 
 type Score = { key: string; skill: string; score: number; note: string }
 type Attendance = { key: string; date: string; session: string; status: 'Có mặt' | 'Đi muộn' | 'Vắng'; note: string }
-type ResultApi = { exams: Array<{ examId: number; examName: string; examDate: string | null; className: string; listening: number | null; speaking: number | null; reading: number | null; writing: number | null; average: number | null }>; attendance: Array<{ sessionId: number; className: string; startsAt: string; status: 'co_mat' | 'di_muon' | 'vang'; note: string | null }> }
+type ExamResult = { examId: number; examName: string; examDate: string | null; classId: number; classCode: string; className: string; listening: number | null; speaking: number | null; reading: number | null; writing: number | null; average: number | null }
+type ResultApi = { exams: ExamResult[]; attendance: Array<{ sessionId: number; className: string; startsAt: string; status: 'co_mat' | 'di_muon' | 'vang'; note: string | null }> }
 type Eligibility = { courseName: string; attendance: number; average: number | null; paid: boolean; eligible: boolean; ineligibleReasons: string[] }
 
 const scoreColumns: ColumnsType<Score> = [
@@ -40,9 +42,10 @@ const attendanceColumns: ColumnsType<Attendance> = [
 function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResultsProps) {
   const [result, setResult] = useState<ResultApi>({ exams: [], attendance: [] })
   const [eligibility, setEligibility] = useState<Eligibility[]>([])
+  const [examId, setExamId] = useState<number>()
   const [messageApi, contextHolder] = message.useMessage()
-  useEffect(() => { Promise.all([api<ResultApi>('/student/results'), api<Eligibility[]>('/student/certificate-eligibility')]).then(([data, conditions]) => { setResult(data); setEligibility(conditions) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
-  const exam = result.exams[0]
+  useEffect(() => { Promise.all([api<ResultApi>('/student/results'), api<Eligibility[]>('/student/certificate-eligibility')]).then(([data, conditions]) => { setResult(data); setEligibility(conditions); setExamId((current) => current ?? data.exams[0]?.examId) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  const exam = result.exams.find((item) => item.examId === examId) ?? result.exams[0]
   const scores: Score[] = exam ? [
     { key: 'listening', skill: 'Nghe', score: Number(exam.listening ?? 0), note: exam.listening === null ? 'Chưa có điểm' : exam.examName },
     { key: 'speaking', skill: 'Nói', score: Number(exam.speaking ?? 0), note: exam.speaking === null ? 'Chưa có điểm' : exam.examName },
@@ -70,13 +73,13 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
       <Col xs={24} md={8}><Card><span className="student-result-label">Đi muộn</span><strong>{late}</strong><small>buổi học</small></Card></Col>
       <Col xs={24} md={8}><Card><span className="student-result-label">Vắng</span><strong>{absent}</strong><small>buổi học</small></Card></Col>
     </Row>
-    <Card className="student-attendance-progress"><Flex align="center" gap={24} wrap><Progress type="circle" percent={rate} strokeColor="#397359" size={104} /><div><Typography.Title level={4}>Tỷ lệ chuyên cần đạt yêu cầu</Typography.Title><Typography.Paragraph type="secondary">Trung tâm yêu cầu tối thiểu 80% để đủ điều kiện dự thi cuối khóa.</Typography.Paragraph><Tag color="green"><CheckCircle weight="fill" /> Đạt điều kiện</Tag></div></Flex></Card>
+    <Card className="student-attendance-progress"><Flex align="center" gap={24} wrap><Progress type="circle" percent={rate} strokeColor={rate >= 80 ? '#397359' : '#c43d3d'} size={104} /><div><Typography.Title level={4}>Tỷ lệ chuyên cần {rate >= 80 ? 'đạt yêu cầu' : 'chưa đạt yêu cầu'}</Typography.Title><Typography.Paragraph type="secondary">Trung tâm yêu cầu tối thiểu 80% để đủ điều kiện dự thi cuối khóa.</Typography.Paragraph><Tag color={rate >= 80 ? 'green' : 'red'}><CheckCircle weight="fill" /> {rate >= 80 ? 'Đạt điều kiện' : 'Chưa đạt'}</Tag></div></Flex></Card>
     <Card className="admin-table-card" title="Lịch sử điểm danh gần đây"><Table columns={attendanceColumns} dataSource={attendanceRows} pagination={false} scroll={{ x: 620 }} /></Card>
   </div>
 
   const certificateTab = <div className="student-result-panel">
     <Alert type={condition?.eligible ? 'success' : 'warning'} showIcon title={condition?.eligible ? 'Đủ điều kiện nhận chứng chỉ' : 'Chưa đủ điều kiện nhận chứng chỉ'} description={condition?.eligible ? 'Hồ sơ đang chờ quản trị viên xét duyệt.' : condition?.ineligibleReasons.join('; ') || 'Chưa có khóa học để xét.'} />
-    <Card className="student-certificate-card" title="Điều kiện xét chứng chỉ A2">
+    <Card className="student-certificate-card" title={`Điều kiện xét chứng chỉ ${condition?.courseName ?? ''}`}>
       <div className="student-condition-list">
         <div><CheckCircle weight="fill" /><span><strong>Chuyên cần từ 80%</strong><small>Hiện tại: {condition?.attendance ?? 0}%</small></span><Tag color={Number(condition?.attendance ?? 0) >= 80 ? 'green' : 'red'}>{Number(condition?.attendance ?? 0) >= 80 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
         <div><CheckCircle weight="fill" /><span><strong>Điểm trung bình từ 5,0</strong><small>Hiện tại: {condition?.average ?? 'Chưa có'}</small></span><Tag color={Number(condition?.average ?? 0) >= 5 ? 'green' : 'red'}>{Number(condition?.average ?? 0) >= 5 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
@@ -85,14 +88,20 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
     </Card>
   </div>
 
-  const historyTab = <div className="student-result-panel"><Empty description="Lịch sử được tổng hợp từ các kỳ thi phía trên" /></div>
+  const historyTab = <div className="student-result-panel">{result.exams.length ? <Table rowKey="examId" pagination={false} scroll={{ x: 720 }} dataSource={result.exams} columns={[
+    { title: 'Kỳ thi', dataIndex: 'examName', render: (value: string) => <Typography.Text strong>{value}</Typography.Text> },
+    { title: 'Lớp học', key: 'class', render: (_: unknown, item: ExamResult) => `${item.classCode} · ${item.className}` },
+    { title: 'Ngày thi', dataIndex: 'examDate', render: (value: string | null) => value ? new Date(`${value}T00:00:00`).toLocaleDateString('vi-VN') : '—' },
+    { title: 'Điểm TB', dataIndex: 'average', render: (value: number | null) => value === null ? 'Chưa có' : Number(value).toFixed(1) },
+    { title: 'Kết quả', dataIndex: 'average', render: (value: number | null) => value === null ? <Tag>Chưa công bố</Tag> : Number(value) >= 5 ? <Tag color="green">Đạt</Tag> : <Tag color="red">Chưa đạt</Tag> },
+  ]} /> : <Empty description="Chưa có lịch sử học tập" />}</div>
 
   return (
     <StudentLayout activePage="student-results" mainId="student-results" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
       {contextHolder}
-      <AdminPageHeader kicker="Kết quả học tập" title="Điểm số và chuyên cần" description="Theo dõi kết quả bốn kỹ năng, lịch sử điểm danh và điều kiện nhận chứng chỉ." />
+      <AdminPageHeader kicker="Kết quả học tập" title="Điểm số và chuyên cần" description="Theo dõi kết quả bốn kỹ năng, lịch sử điểm danh và điều kiện nhận chứng chỉ." actions={<Select value={exam?.examId} onChange={setExamId} disabled={!result.exams.length} placeholder="Chọn kỳ thi" style={{ minWidth: 240 }} options={result.exams.map((item) => ({ value: item.examId, label: `${item.examName} · ${item.className}` }))} />} />
       <AdminSummary items={[
-        { label: 'Điểm trung bình', value: average.toFixed(1), detail: 'Kết quả giữa khóa', icon: <ChartBar weight="duotone" /> },
+        { label: 'Điểm trung bình', value: exam?.average === null || !exam ? '—' : average.toFixed(1), detail: exam?.examName ?? 'Chưa có kết quả', icon: <ChartBar weight="duotone" /> },
         { label: 'Chuyên cần', value: `${rate}%`, detail: `${present} có mặt · ${late} muộn · ${absent} vắng`, icon: <CalendarCheck weight="duotone" />, tone: 'success' },
         { label: 'Kỳ thi', value: result.exams.length, detail: 'Kết quả đã công bố', icon: <ClockCounterClockwise weight="duotone" /> },
         { label: 'Chứng chỉ', value: condition?.eligible ? 'Đủ điều kiện' : 'Chưa đạt', detail: condition?.courseName ?? 'Chưa có khóa học', icon: <Certificate weight="duotone" />, tone: condition?.eligible ? 'success' : 'danger' },
@@ -108,4 +117,3 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
 }
 
 export default StudentResults
-import { useEffect, useState } from 'react'
