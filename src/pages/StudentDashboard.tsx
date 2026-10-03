@@ -23,7 +23,7 @@ type StudentDashboardProps = {
   onNavigateHome: () => void
 }
 
-type Dashboard = { user: { fullName: string }; activeClasses: number; present: number; late: number; absent: number; outstanding: number; nearestDueDate: string | null; nextSession: null | { className: string; startsAt: string; endsAt: string; roomCode: string; teacherName: string } }
+type Dashboard = { user: { fullName: string }; activeClasses: number; present: number; late: number; absent: number; courseProgress: number; issuedCertificates: number; approvedCertificates: number; outstanding: number; nearestDueDate: string | null; nextSession: null | { className: string; startsAt: string; endsAt: string; roomCode: string; teacherName: string } }
 const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}đ`
 
 function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashboardProps) {
@@ -34,6 +34,12 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
   const attendanceRate = totalAttendance ? Math.round((Number(data?.present ?? 0) + Number(data?.late ?? 0)) * 100 / totalAttendance) : 0
   const next = data?.nextSession
   const startsAt = next ? new Date(next.startsAt) : null
+  const issuedCertificates = Number(data?.issuedCertificates ?? 0)
+  const approvedCertificates = Number(data?.approvedCertificates ?? 0)
+  const certificateLabel = [
+    issuedCertificates ? `${issuedCertificates} đã cấp` : '',
+    approvedCertificates ? `${approvedCertificates} đã duyệt` : '',
+  ].filter(Boolean).join(' · ') || 'Chưa xét'
 
   return (
     <StudentLayout activePage="student" mainId="student-dashboard" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
@@ -71,7 +77,7 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
 
         <Col xs={24} xl={10}>
           <Card title="Tiến độ khóa học">
-            <div className="student-course-progress"><Flex justify="space-between"><Typography.Text strong>{Number(data?.activeClasses ?? 0)} lớp đang học</Typography.Text><Typography.Text type="secondary">Dữ liệu hệ thống</Typography.Text></Flex><Progress percent={attendanceRate} strokeColor="#397359" /></div>
+            <div className="student-course-progress"><Flex justify="space-between"><Typography.Text strong>{Number(data?.activeClasses ?? 0)} lớp đang học</Typography.Text><Typography.Text type="secondary">Số buổi đã hoàn tất</Typography.Text></Flex><Progress percent={Number(data?.courseProgress ?? 0)} strokeColor="#397359" /></div>
             <Button block onClick={() => onNavigate('student-schedule')}>Xem thời khóa biểu <ArrowRight /></Button>
           </Card>
         </Col>
@@ -83,7 +89,7 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
         <Col xs={24} lg={12}>
           <Card title="Học phí và chứng chỉ">
             <button className="student-status-row" type="button" onClick={() => onNavigate('student-invoices')}><span className="student-status-icon warning"><Receipt weight="duotone" /></span><span><strong>Học phí còn lại</strong><small>{data?.nearestDueDate ? `Hạn ${new Date(data.nearestDueDate).toLocaleDateString('vi-VN')}` : 'Đã hoàn tất'}</small></span><b>{money(Number(data?.outstanding ?? 0))}</b><ArrowRight /></button>
-            <button className="student-status-row" type="button" onClick={() => onNavigate('student-certificates')}><span className="student-status-icon"><Certificate weight="duotone" /></span><span><strong>Chứng chỉ cuối khóa</strong><small>Được xét sau khi hoàn thành khóa học</small></span><Tag>Chưa xét</Tag><ArrowRight /></button>
+            <button className="student-status-row" type="button" onClick={() => onNavigate('student-certificates')}><span className="student-status-icon"><Certificate weight="duotone" /></span><span><strong>Chứng chỉ cuối khóa</strong><small>Được xét sau khi hoàn thành khóa học</small></span><Tag color={issuedCertificates ? 'green' : approvedCertificates ? 'blue' : undefined}>{certificateLabel}</Tag><ArrowRight /></button>
           </Card>
         </Col>
       </Row>

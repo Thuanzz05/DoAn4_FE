@@ -21,14 +21,20 @@ type StudentScheduleProps = {
 }
 
 type ViewMode = 'week' | 'month'
-type Session = { id: number; date: string; time: string; course: string; room: string; teacher: string; classCode: string; status: string }
-type SessionApi = { id: number; classCode: string; className: string; startsAt: string; endsAt: string; status: string; roomCode: string; teacherName: string }
+type SessionStatus = 'da_len_lich' | 'da_hoc' | 'da_huy'
+type Session = { id: number; date: string; time: string; course: string; room: string; teacher: string; classCode: string; status: SessionStatus }
+type SessionApi = { id: number; classCode: string; className: string; startsAt: string; endsAt: string; status: SessionStatus; roomCode: string; teacherName: string }
 
 const DAY = 86_400_000
 const formatKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 const addDays = (date: Date, amount: number) => new Date(date.getTime() + amount * DAY)
 const startOfWeek = (date: Date) => addDays(new Date(date.getFullYear(), date.getMonth(), date.getDate()), -((date.getDay() + 6) % 7))
 const parseDate = (value: string) => { const [year, month, day] = value.split('-').map(Number); return new Date(year, month - 1, day) }
+const sessionStatus: Record<SessionStatus, { color: string; label: string }> = {
+  da_len_lich: { color: 'blue', label: 'Đã lên lịch' },
+  da_hoc: { color: 'green', label: 'Đã học' },
+  da_huy: { color: 'red', label: 'Đã hủy' },
+}
 
 if (import.meta.env.DEV && formatKey(new Date(2026, 8, 5)) !== '2026-09-05') throw new Error('Schedule date check failed')
 
@@ -76,20 +82,20 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
           <div className="student-week-scroll"><div className="student-week-grid">
             {weekDays.map((date) => {
               const daySessions = sessions.filter((session) => session.date === formatKey(date))
-              return <section className={formatKey(date) === formatKey(new Date()) ? 'is-today' : ''} key={formatKey(date)}><header><span>{date.toLocaleDateString('vi-VN', { weekday: 'short' })}</span><strong>{date.getDate()}</strong></header><div className="student-day-sessions">{daySessions.map((session) => <button className="student-schedule-session" type="button" key={session.id} onClick={() => setSelected(session)}><span><Clock />{session.time}</span><strong>{session.course}</strong><small><MapPin />{session.room}</small><Tag color={session.status === 'da_hoc' ? 'green' : 'blue'}>{session.status === 'da_hoc' ? 'Đã học' : 'Đã lên lịch'}</Tag></button>)}{!daySessions.length && <span className="student-no-session">Không có lịch</span>}</div></section>
+              return <section className={formatKey(date) === formatKey(new Date()) ? 'is-today' : ''} key={formatKey(date)}><header><span>{date.toLocaleDateString('vi-VN', { weekday: 'short' })}</span><strong>{date.getDate()}</strong></header><div className="student-day-sessions">{daySessions.map((session) => <button className="student-schedule-session" type="button" key={session.id} onClick={() => setSelected(session)}><span><Clock />{session.time}</span><strong>{session.course}</strong><small><MapPin />{session.room}</small><Tag color={sessionStatus[session.status].color}>{sessionStatus[session.status].label}</Tag></button>)}{!daySessions.length && <span className="student-no-session">Không có lịch</span>}</div></section>
             })}
           </div></div>
         ) : (
           <div className="student-month-scroll"><div className="student-month-calendar">
             {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => <strong className="student-month-weekday" key={day}>{day}</strong>)}
-            {monthDays.map((date) => { const daySessions = sessions.filter((session) => session.date === formatKey(date)); return <section className={`${date.getMonth() !== anchor.getMonth() ? 'outside' : ''} ${formatKey(date) === formatKey(new Date()) ? 'is-today' : ''}`} key={formatKey(date)}><span>{date.getDate()}</span>{daySessions.map((session) => <button type="button" key={session.id} onClick={() => setSelected(session)}><i />{session.time} · {session.course}</button>)}</section> })}
+            {monthDays.map((date) => { const daySessions = sessions.filter((session) => session.date === formatKey(date)); return <section className={`${date.getMonth() !== anchor.getMonth() ? 'outside' : ''} ${formatKey(date) === formatKey(new Date()) ? 'is-today' : ''}`} key={formatKey(date)}><span>{date.getDate()}</span>{daySessions.map((session) => <button type="button" key={session.id} onClick={() => setSelected(session)}><i />{session.status === 'da_huy' ? 'Đã hủy' : session.time} · {session.course}</button>)}</section> })}
           </div></div>
         )}
       </Card>
 
       <Drawer title={selected?.course} open={Boolean(selected)} onClose={() => setSelected(null)} size={430}>
         {selected ? <>
-          <Tag color={selected.status === 'da_hoc' ? 'green' : 'blue'}>{selected.status === 'da_hoc' ? 'Đã học' : 'Đã lên lịch'}</Tag>
+          <Tag color={sessionStatus[selected.status].color}>{sessionStatus[selected.status].label}</Tag>
           <Typography.Title className="student-schedule-drawer-title" level={3}>{selected.time}</Typography.Title>
           <Space orientation="vertical" size={14} className="student-schedule-meta">
             <span><CalendarBlank />{fullDate.format(parseDate(selected.date))}</span>

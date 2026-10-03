@@ -22,9 +22,9 @@ type StudentResultsProps = {
 
 type Score = { key: string; skill: string; score: number; note: string }
 type Attendance = { key: string; date: string; session: string; status: 'Có mặt' | 'Đi muộn' | 'Vắng'; note: string }
-type ExamResult = { examId: number; examName: string; examDate: string | null; classId: number; classCode: string; className: string; listening: number | null; speaking: number | null; reading: number | null; writing: number | null; average: number | null }
-type ResultApi = { exams: ExamResult[]; attendance: Array<{ sessionId: number; className: string; startsAt: string; status: 'co_mat' | 'di_muon' | 'vang'; note: string | null }> }
-type Eligibility = { courseName: string; attendance: number; average: number | null; paid: boolean; eligible: boolean; ineligibleReasons: string[] }
+type ExamResult = { examId: number; enrollmentId: number; examName: string; examDate: string | null; classId: number; classCode: string; className: string; listening: number | null; speaking: number | null; reading: number | null; writing: number | null; average: number | null }
+type ResultApi = { exams: ExamResult[]; attendance: Array<{ sessionId: number; enrollmentId: number; classId: number; className: string; startsAt: string; status: 'co_mat' | 'di_muon' | 'vang'; note: string | null }> }
+type Eligibility = { enrollmentId: number; classId: number; courseName: string; attendance: number; average: number | null; paid: boolean; eligible: boolean; ineligibleReasons: string[] }
 
 const scoreColumns: ColumnsType<Score> = [
   { title: 'Kỹ năng', dataIndex: 'skill', render: (skill) => <Typography.Text strong>{skill}</Typography.Text> },
@@ -52,13 +52,14 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
     { key: 'reading', skill: 'Đọc', score: Number(exam.reading ?? 0), note: exam.reading === null ? 'Chưa có điểm' : exam.examName },
     { key: 'writing', skill: 'Viết', score: Number(exam.writing ?? 0), note: exam.writing === null ? 'Chưa có điểm' : exam.examName },
   ] : []
-  const attendanceRows: Attendance[] = result.attendance.map((item) => ({ key: String(item.sessionId), date: new Date(item.startsAt).toLocaleDateString('vi-VN'), session: item.className, status: item.status === 'co_mat' ? 'Có mặt' : item.status === 'di_muon' ? 'Đi muộn' : 'Vắng', note: item.note ?? '—' }))
+  const selectedEnrollmentId = exam?.enrollmentId ?? eligibility[0]?.enrollmentId
+  const attendanceRows: Attendance[] = result.attendance.filter((item) => selectedEnrollmentId === undefined || item.enrollmentId === selectedEnrollmentId).map((item) => ({ key: `${item.enrollmentId}-${item.sessionId}`, date: new Date(item.startsAt).toLocaleDateString('vi-VN'), session: item.className, status: item.status === 'co_mat' ? 'Có mặt' : item.status === 'di_muon' ? 'Đi muộn' : 'Vắng', note: item.note ?? '—' }))
   const present = attendanceRows.filter((item) => item.status === 'Có mặt').length
   const late = attendanceRows.filter((item) => item.status === 'Đi muộn').length
   const absent = attendanceRows.filter((item) => item.status === 'Vắng').length
   const rate = attendanceRows.length ? Math.round((present + late) * 100 / attendanceRows.length) : 0
   const average = Number(exam?.average ?? 0)
-  const condition = eligibility[0]
+  const condition = eligibility.find((item) => item.enrollmentId === selectedEnrollmentId)
   const gradeTab = <div className="student-result-panel">
     <Alert type={average >= 5 ? 'success' : 'info'} showIcon title={exam ? `${exam.examName} · ${exam.className}` : 'Chưa có kết quả thi'} description={exam ? `Điểm trung bình hiện tại là ${average.toFixed(1)}/10.` : 'Kết quả sẽ hiển thị sau khi giáo viên nhập điểm.'} />
     <Row gutter={[14, 14]} className="student-skill-cards">
