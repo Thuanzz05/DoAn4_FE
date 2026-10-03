@@ -23,13 +23,14 @@ type TeacherScheduleProps = {
 
 type Session = {
   id: number
+  startsAt: string
   date: string
   time: string
   name: string
   code: string
   room: string
   students: number
-  status: 'Đã hoàn tất' | 'Sắp diễn ra'
+  status: 'Đã hoàn tất' | 'Sắp diễn ra' | 'Đã hủy'
 }
 type SessionApi = { id: number; classCode: string; className: string; startsAt: string; endsAt: string; status: string; roomCode: string; students: number }
 type StudentApi = { enrollmentId: number; studentCode: string; studentName: string; status: 'co_mat' | 'di_muon' | 'vang' | null; attendanceRate: number | null }
@@ -60,13 +61,14 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
     api<SessionApi[]>(`/teacher/sessions?from=${from}&to=${to}`)
       .then((rows) => setSessions(rows.map((item) => ({
         id: item.id,
+        startsAt: item.startsAt,
         date: String(item.startsAt).slice(0, 10),
         time: `${new Date(item.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`,
         name: item.className,
         code: item.classCode,
         room: item.roomCode,
         students: Number(item.students),
-        status: item.status === 'da_hoc' ? 'Đã hoàn tất' : 'Sắp diễn ra',
+        status: item.status === 'da_hoc' ? 'Đã hoàn tất' : item.status === 'da_huy' ? 'Đã hủy' : 'Sắp diễn ra',
       }))))
       .catch((error) => messageApi.error(errorMessage(error)))
   }, [messageApi, weekStart])
@@ -117,7 +119,7 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
                         <span className="teacher-schedule-time"><Clock />{session.time}</span>
                         <strong>{session.name}</strong>
                         <small><MapPin />{session.room}</small>
-                        <Tag color={session.status === 'Đã hoàn tất' ? 'green' : 'blue'}>{session.status}</Tag>
+                        <Tag color={session.status === 'Đã hoàn tất' ? 'green' : session.status === 'Đã hủy' ? 'red' : 'blue'}>{session.status}</Tag>
                       </button>
                     ))}
                   </div>
@@ -128,7 +130,7 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
         ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Tuần này chưa có lịch giảng dạy" />}
 
         <Flex className="teacher-schedule-legend" gap={18} wrap>
-          <span><i className="done" />Đã hoàn tất</span><span><i className="upcoming" />Sắp diễn ra</span><span><i className="changed" />Có thay đổi</span>
+          <span><i className="done" />Đã hoàn tất</span><span><i className="upcoming" />Sắp diễn ra</span><span><i className="changed" />Đã hủy</span>
         </Flex>
       </Card>
 
@@ -140,7 +142,7 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
             <span><CalendarBlank />{fullDateFormat.format(new Date(`${selected.date}T00:00:00`))}</span>
             <span><MapPin />Phòng {selected.room.replace('P.', '')}</span>
             <span><UsersThree />{selected.students} học viên</span>
-            <span>{selected.status === 'Sắp diễn ra' ? <WarningCircle /> : <CheckCircle />} {selected.status}</span>
+            <span>{selected.status === 'Đã hoàn tất' ? <CheckCircle /> : <WarningCircle />} {selected.status}</span>
           </Space>
           <Divider />
           <Typography.Title level={5}>Danh sách học viên</Typography.Title>
@@ -148,7 +150,7 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
             const attendance = student.status === 'co_mat' ? ['green', 'Có mặt'] : student.status === 'di_muon' ? ['gold', 'Đi muộn'] : student.status === 'vang' ? ['red', 'Vắng'] : ['default', 'Chưa điểm danh']
             return <Flex key={student.enrollmentId} align="center" gap={10}><Avatar>{student.studentName.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div style={{ flex: 1 }}><Typography.Text strong>{student.studentName}</Typography.Text><br /><Typography.Text type="secondary">{student.studentCode} · Chuyên cần {Number(student.attendanceRate ?? 0)}%</Typography.Text></div><Tag color={attendance[0]}>{attendance[1]}</Tag></Flex>
           })}</div> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Lớp chưa có học viên" />}
-          <Button type="primary" block className="teacher-open-attendance" onClick={() => { sessionStorage.setItem('teacher-attendance-session', String(selected.id)); onNavigate('teacher-attendance') }}>Mở điểm danh buổi này</Button>
+          <Button type="primary" block className="teacher-open-attendance" disabled={selected.status === 'Đã hủy' || new Date(selected.startsAt.replace(' ', 'T')).getTime() > Date.now()} onClick={() => { sessionStorage.setItem('teacher-attendance-session', String(selected.id)); onNavigate('teacher-attendance') }}>{selected.status === 'Đã hủy' ? 'Buổi học đã hủy' : new Date(selected.startsAt.replace(' ', 'T')).getTime() > Date.now() ? 'Chưa đến giờ điểm danh' : 'Mở điểm danh buổi này'}</Button>
         </>}
       </Drawer>
     </TeacherLayout>

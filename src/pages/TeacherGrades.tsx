@@ -46,13 +46,28 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
   const [examId, setExamId] = useState<number>()
   const [scores, setScores] = useState<Record<number, Score>>({})
   const [saved, setSaved] = useState(false)
+  const [dirty, setDirty] = useState(false)
   const [creatingExam, setCreatingExam] = useState(false)
   const [examForm] = Form.useForm<ExamForm>()
   const [messageApi, messageContext] = message.useMessage()
   const [modalApi, modalContext] = Modal.useModal()
   useEffect(() => { api<ClassApi[]>('/teacher/classes').then((rows) => { setClasses(rows); setClassId((current) => current ?? rows[0]?.id) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
   useEffect(() => { if (!classId) return; api<ExamApi[]>(`/teacher/classes/${classId}/exams`).then((rows) => { setExams(rows); setExamId(rows[0]?.id) }).catch((error) => messageApi.error(errorMessage(error))) }, [classId, messageApi])
-  useEffect(() => { if (!examId) { setStudents([]); setScores({}); return }; api<ResultApi>(`/teacher/exams/${examId}/results`).then((result) => { setStudents(result.students.map((item) => ({ id: item.enrollmentId, code: item.studentCode, name: item.studentName }))); setScores(Object.fromEntries(result.students.map((item) => [item.enrollmentId, { listening: item.listening, speaking: item.speaking, reading: item.reading, writing: item.writing }]))); setSaved(result.students.length > 0 && result.students.every((item) => [item.listening, item.speaking, item.reading, item.writing].every((value) => value !== null))) }).catch((error) => messageApi.error(errorMessage(error))) }, [examId, messageApi])
+  useEffect(() => { if (!examId) { setStudents([]); setScores({}); setDirty(false); return }; api<ResultApi>(`/teacher/exams/${examId}/results`).then((result) => { setStudents(result.students.map((item) => ({ id: item.enrollmentId, code: item.studentCode, name: item.studentName }))); setScores(Object.fromEntries(result.students.map((item) => [item.enrollmentId, { listening: item.listening, speaking: item.speaking, reading: item.reading, writing: item.writing }]))); setSaved(result.students.length > 0 && result.students.every((item) => [item.listening, item.speaking, item.reading, item.writing].every((value) => value !== null))); setDirty(false) }).catch((error) => messageApi.error(errorMessage(error))) }, [examId, messageApi])
+  useEffect(() => {
+    if (!dirty) return
+    const preventUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
+    const confirmHistoryNavigation = (event: Event) => {
+      if (!window.confirm('Bảng điểm có thay đổi chưa lưu. Bạn có muốn rời trang?')) event.preventDefault()
+      else setDirty(false)
+    }
+    window.addEventListener('beforeunload', preventUnload)
+    window.addEventListener('app:history-navigation', confirmHistoryNavigation)
+    return () => {
+      window.removeEventListener('beforeunload', preventUnload)
+      window.removeEventListener('app:history-navigation', confirmHistoryNavigation)
+    }
+  }, [dirty])
 
   const results = useMemo(() => students.map((student) => averageScore(scores[student.id] ?? emptyScore())), [scores, students])
   const completed = results.filter((value) => value !== null).length
@@ -62,17 +77,24 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
   const updateScore = (studentId: number, skill: Skill, value: number | null) => {
     setScores((current) => ({ ...current, [studentId]: { ...(current[studentId] ?? emptyScore()), [skill]: value } }))
     setSaved(false)
+    setDirty(true)
+  }
+
+  const confirmDiscard = (action: () => void) => {
+    if (!dirty) { action(); return }
+    modalApi.confirm({ title: 'Bỏ thay đổi chưa lưu?', content: 'Các điểm đang nhập sẽ bị mất.', okText: 'Bỏ thay đổi', cancelText: 'Ở lại', okButtonProps: { danger: true }, onOk: () => { setDirty(false); action() } })
   }
 
   const createExam = async (values: ExamForm) => {
     if (!classId) return
+    if (dirty) { messageApi.warning('Hãy lưu hoặc bỏ thay đổi bảng điểm trước khi tạo kỳ thi mới.'); return }
     try {
       const created = await api<ExamApi>(`/teacher/classes/${classId}/exams`, json('POST', values))
-      setExams((current) => [created, ...current]); setExamId(created.id); setCreatingExam(false); examForm.resetFields(); messageApi.success('Đã tạo kỳ thi.')
+      setExams((current) => [created, ...current]); setDirty(false); setExamId(created.id); setCreatingExam(false); examForm.resetFields(); messageApi.success('Đã tạo kỳ thi.')
     } catch (error) { messageApi.error(errorMessage(error)) }
   }
 
-  const persist = async () => { if (!examId) return; try { await api(`/teacher/exams/${examId}/results`, json('PUT', { items: students.map((student) => ({ enrollmentId: student.id, ...scores[student.id] })) })); setSaved(true); messageApi.success('Đã lưu bảng điểm.') } catch (error) { messageApi.error(errorMessage(error)) } }
+  const persist = async () => { if (!examId) return; try { await api(`/teacher/exams/${examId}/results`, json('PUT', { items: students.map((student) => ({ enrollmentId: student.id, ...scores[student.id] })) })); setSaved(true); setDirty(false); messageApi.success('Đã lưu bảng điểm.') } catch (error) { messageApi.error(errorMessage(error)) } }
 
   const saveGrades = () => {
     if (completed < students.length) {
@@ -112,7 +134,7 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
   ]
 
   return (
-    <TeacherLayout activePage="teacher-grades" mainId="teacher-grades" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
+    <TeacherLayout activePage="teacher-grades" mainId="teacher-grades" onLogout={() => confirmDiscard(onLogout)} onNavigate={(page) => confirmDiscard(() => onNavigate(page))} onNavigateHome={() => confirmDiscard(onNavigateHome)}>
       {messageContext}{modalContext}
       <AdminPageHeader
         kicker="Kết quả học tập"
@@ -121,13 +143,13 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
         actions={<Space wrap><Button icon={<Plus />} disabled={!classId} onClick={() => { examForm.resetFields(); setCreatingExam(true) }}>Tạo kỳ thi</Button><Button icon={<DownloadSimple />} disabled={!students.length} onClick={() => { const rows = [['Mã học viên', 'Họ tên', 'Nghe', 'Nói', 'Đọc', 'Viết'], ...students.map((item) => [item.code, item.name, ...Object.values(scores[item.id] ?? emptyScore()).map((value) => value ?? '')])]; const url = URL.createObjectURL(new Blob([`\uFEFF${rows.map((row) => row.join(',')).join('\n')}`], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = 'bang-diem.csv'; link.click(); URL.revokeObjectURL(url) }}>Xuất bảng điểm</Button></Space>}
       />
 
-      <Alert className="teacher-grades-alert" type="info" showIcon title="Thời hạn nhập điểm" description={exams.find((item) => item.id === examId)?.deadline ? `Được chỉnh sửa đến ${new Date(exams.find((item) => item.id === examId)!.deadline!).toLocaleString('vi-VN')}` : 'Kỳ thi chưa đặt hạn sửa điểm.'} />
+      <Alert className="teacher-grades-alert" type="info" showIcon title="Thời hạn nhập điểm" description={exams.find((item) => item.id === examId)?.deadline ? `Được chỉnh sửa đến ${new Date(exams.find((item) => item.id === examId)!.deadline!.replace(' ', 'T')).toLocaleString('vi-VN')}` : 'Kỳ thi chưa đặt hạn sửa điểm.'} />
 
       <Card className="grades-filter-card">
         <Flex align="flex-end" justify="space-between" gap={18} wrap>
           <Space size={14} wrap>
-            <label><Typography.Text>Lớp học</Typography.Text><Select value={classId} onChange={setClassId} options={classes.map((item) => ({ value: item.id, label: `${item.name} · ${item.code}` }))} /></label>
-            <label><Typography.Text>Kỳ đánh giá</Typography.Text><Select value={examId} onChange={setExamId} options={exams.map((item) => ({ value: item.id, label: item.name }))} /></label>
+            <label><Typography.Text>Lớp học</Typography.Text><Select value={classId} onChange={(value) => confirmDiscard(() => setClassId(value))} options={classes.map((item) => ({ value: item.id, label: `${item.name} · ${item.code}` }))} /></label>
+            <label><Typography.Text>Kỳ đánh giá</Typography.Text><Select value={examId} onChange={(value) => confirmDiscard(() => setExamId(value))} options={exams.map((item) => ({ value: item.id, label: item.name }))} /></label>
           </Space>
           <Tag color={saved ? 'green' : 'orange'}>{saved ? 'Đã lưu' : 'Đang nhập'}</Tag>
         </Flex>

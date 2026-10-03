@@ -31,6 +31,7 @@ const attendanceOptions = [
   { label: 'Muộn', value: 'late' },
   { label: 'Vắng', value: 'absent' },
 ]
+const started = (value: string) => new Date(value.replace(' ', 'T')).getTime() <= Date.now()
 
 const countAttendance = (values: AttendanceStatus[]) => values.reduce((result, status) => ({ ...result, [status || 'unmarked']: result[status || 'unmarked'] + 1 }), { present: 0, late: 0, absent: 0, unmarked: 0 })
 
@@ -46,17 +47,37 @@ function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAtte
   const [attendance, setAttendance] = useState<Record<number, AttendanceStatus>>({})
   const [notes, setNotes] = useState<Record<number, string>>({})
   const [saved, setSaved] = useState(false)
+  const [dirty, setDirty] = useState(false)
   const [messageApi, messageContext] = message.useMessage()
   const [modalApi, modalContext] = Modal.useModal()
 
   const counts = useMemo(() => countAttendance(Object.values(attendance)), [attendance])
   const currentSession = sessions.find((item) => item.id === session)
-  useEffect(() => { api<SessionApi[]>('/teacher/sessions').then((rows) => { const requested = Number(sessionStorage.getItem('teacher-attendance-session')); sessionStorage.removeItem('teacher-attendance-session'); setSessions(rows); setSession((current) => current ?? (rows.some((item) => item.id === requested) ? requested : rows[0]?.id)) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
-  useEffect(() => { if (!session) return; api<{ students: AttendanceApi[] }>(`/teacher/sessions/${session}/attendance`).then((result) => { setStudents(result.students.map((item) => ({ id: item.enrollmentId, code: item.studentCode, name: item.studentName, rate: Number(item.attendanceRate ?? 0) }))); setAttendance(Object.fromEntries(result.students.map((item) => [item.enrollmentId, item.status === 'co_mat' ? 'present' : item.status === 'di_muon' ? 'late' : item.status === 'vang' ? 'absent' : '']))); setNotes(Object.fromEntries(result.students.map((item) => [item.enrollmentId, item.note ?? '']))); setSaved(result.students.length > 0 && result.students.every((item) => item.status)) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi, session])
-  const setStatus = (id: number, status: AttendanceStatus) => { setAttendance((current) => ({ ...current, [id]: status })); setSaved(false) }
-  const markAllPresent = () => { setAttendance(Object.fromEntries(students.map((student) => [student.id, 'present'])) as Record<number, AttendanceStatus>); setSaved(false) }
+  useEffect(() => { api<SessionApi[]>('/teacher/sessions').then((rows) => { const available = rows.filter((item) => item.status !== 'da_huy' && started(item.startsAt)); const requested = Number(sessionStorage.getItem('teacher-attendance-session')); sessionStorage.removeItem('teacher-attendance-session'); setSessions(available); setSession((current) => available.some((item) => item.id === current) ? current : (available.some((item) => item.id === requested) ? requested : available[0]?.id)) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  useEffect(() => { if (!session) return; api<{ students: AttendanceApi[] }>(`/teacher/sessions/${session}/attendance`).then((result) => { setStudents(result.students.map((item) => ({ id: item.enrollmentId, code: item.studentCode, name: item.studentName, rate: Number(item.attendanceRate ?? 0) }))); setAttendance(Object.fromEntries(result.students.map((item) => [item.enrollmentId, item.status === 'co_mat' ? 'present' : item.status === 'di_muon' ? 'late' : item.status === 'vang' ? 'absent' : '']))); setNotes(Object.fromEntries(result.students.map((item) => [item.enrollmentId, item.note ?? '']))); setSaved(result.students.length > 0 && result.students.every((item) => item.status)); setDirty(false) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi, session])
+  useEffect(() => {
+    if (!dirty) return
+    const preventUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
+    const confirmHistoryNavigation = (event: Event) => {
+      if (!window.confirm('Điểm danh có thay đổi chưa lưu. Bạn có muốn rời trang?')) event.preventDefault()
+      else setDirty(false)
+    }
+    window.addEventListener('beforeunload', preventUnload)
+    window.addEventListener('app:history-navigation', confirmHistoryNavigation)
+    return () => {
+      window.removeEventListener('beforeunload', preventUnload)
+      window.removeEventListener('app:history-navigation', confirmHistoryNavigation)
+    }
+  }, [dirty])
+  const setStatus = (id: number, status: AttendanceStatus) => { setAttendance((current) => ({ ...current, [id]: status })); setSaved(false); setDirty(true) }
+  const markAllPresent = () => { setAttendance(Object.fromEntries(students.map((student) => [student.id, 'present'])) as Record<number, AttendanceStatus>); setSaved(false); setDirty(true) }
 
-  const persist = async () => { if (!session) return; try { await api(`/teacher/sessions/${session}/attendance`, json('PUT', { items: students.map((student) => ({ enrollmentId: student.id, status: attendance[student.id] === 'present' ? 'co_mat' : attendance[student.id] === 'late' ? 'di_muon' : 'vang', note: notes[student.id] || null })) })); setSaved(true); messageApi.success('Đã lưu điểm danh cho buổi học.') } catch (error) { messageApi.error(errorMessage(error)) } }
+  const confirmDiscard = (action: () => void) => {
+    if (!dirty) { action(); return }
+    modalApi.confirm({ title: 'Bỏ thay đổi chưa lưu?', content: 'Các thay đổi điểm danh hiện tại sẽ bị mất.', okText: 'Bỏ thay đổi', cancelText: 'Ở lại', okButtonProps: { danger: true }, onOk: () => { setDirty(false); action() } })
+  }
+
+  const persist = async () => { if (!session) return; try { await api(`/teacher/sessions/${session}/attendance`, json('PUT', { items: students.map((student) => ({ enrollmentId: student.id, status: attendance[student.id] === 'present' ? 'co_mat' : attendance[student.id] === 'late' ? 'di_muon' : 'vang', note: notes[student.id] || null })) })); setSaved(true); setDirty(false); messageApi.success('Đã lưu điểm danh cho buổi học.') } catch (error) { messageApi.error(errorMessage(error)) } }
 
   const saveAttendance = () => {
     if (counts.unmarked) {
@@ -83,12 +104,12 @@ function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAtte
     },
     {
       title: 'Ghi chú', key: 'note',
-      render: (_, student) => <Input value={notes[student.id] ?? ''} placeholder="Thêm ghi chú" onChange={(event) => { setNotes((current) => ({ ...current, [student.id]: event.target.value })); setSaved(false) }} />,
+      render: (_, student) => <Input value={notes[student.id] ?? ''} placeholder="Thêm ghi chú" onChange={(event) => { setNotes((current) => ({ ...current, [student.id]: event.target.value })); setSaved(false); setDirty(true) }} />,
     },
   ]
 
   return (
-    <TeacherLayout activePage="teacher-attendance" mainId="teacher-attendance" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
+    <TeacherLayout activePage="teacher-attendance" mainId="teacher-attendance" onLogout={() => confirmDiscard(onLogout)} onNavigate={(page) => confirmDiscard(() => onNavigate(page))} onNavigateHome={() => confirmDiscard(onNavigateHome)}>
       {messageContext}{modalContext}
       <AdminPageHeader
         kicker="Theo dõi chuyên cần"
@@ -99,7 +120,7 @@ function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAtte
 
       <Card className="attendance-session-card">
         <Flex align="center" justify="space-between" gap={20} wrap>
-          <div><Typography.Text type="secondary">Buổi học cần điểm danh</Typography.Text><Select value={session} onChange={setSession} options={sessions.map((item) => ({ value: item.id, label: `${item.className} · ${new Date(item.startsAt).toLocaleString('vi-VN')}` }))} /></div>
+          <div><Typography.Text type="secondary">Buổi học cần điểm danh</Typography.Text><Select value={session} onChange={(value) => confirmDiscard(() => setSession(value))} options={sessions.map((item) => ({ value: item.id, label: `${item.className} · ${new Date(item.startsAt).toLocaleString('vi-VN')}` }))} /></div>
           <Space size={22} wrap className="attendance-session-meta"><span><Clock />{currentSession ? `${new Date(currentSession.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(currentSession.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : '—'}</span><span><MapPin />{currentSession?.roomCode ?? '—'}</span><span><UsersThree />{students.length} học viên</span><Tag color={saved ? 'green' : 'orange'}>{saved ? 'Đã lưu' : 'Chưa hoàn tất'}</Tag></Space>
         </Flex>
       </Card>
@@ -114,7 +135,7 @@ function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAtte
       <Card
         className="admin-table-card attendance-table-card"
         title="Danh sách học viên"
-        extra={<Space><Button onClick={markAllPresent}>Tất cả có mặt</Button><Button type="primary" icon={<CheckCircle />} onClick={saveAttendance}>Lưu điểm danh</Button></Space>}
+        extra={<Space><Button disabled={!students.length} onClick={markAllPresent}>Tất cả có mặt</Button><Button type="primary" disabled={!session || !students.length} icon={<CheckCircle />} onClick={saveAttendance}>Lưu điểm danh</Button></Space>}
       >
         <Table columns={columns} dataSource={students} rowKey="id" pagination={false} scroll={{ x: 980, y: 520 }} />
       </Card>

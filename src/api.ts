@@ -24,21 +24,26 @@ export class ApiError extends Error {
 }
 
 export function getSession(): AuthSession | null {
-  try {
-    const value = localStorage.getItem(sessionKey)
-    return value ? JSON.parse(value) as AuthSession : null
-  } catch {
-    localStorage.removeItem(sessionKey)
-    return null
+  for (const storage of [sessionStorage, localStorage]) {
+    try {
+      const value = storage.getItem(sessionKey)
+      if (value) return JSON.parse(value) as AuthSession
+    } catch {
+      storage.removeItem(sessionKey)
+    }
   }
+  return null
 }
 
-export function saveSession(session: AuthSession): void {
-  localStorage.setItem(sessionKey, JSON.stringify(session))
+export function saveSession(session: AuthSession, remember = localStorage.getItem(sessionKey) !== null): void {
+  clearSession()
+  const storage = remember ? localStorage : sessionStorage
+  storage.setItem(sessionKey, JSON.stringify(session))
 }
 
 export function clearSession(): void {
   localStorage.removeItem(sessionKey)
+  sessionStorage.removeItem(sessionKey)
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {

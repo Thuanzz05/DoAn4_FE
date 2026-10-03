@@ -11,7 +11,7 @@ type CourseRecord = { id: number; code: string; name: string; language: string; 
 type CourseForm = Omit<CourseRecord, 'id' | 'linkedClasses'>
 type Props = { onLogout: () => void; onNavigate: (page: AdminPage) => void; onNavigateHome: () => void }
 
-type CourseApi = Omit<CourseRecord, 'status' | 'linkedClasses'> & { status: 'dang_mo' | 'tam_an' }
+type CourseApi = Omit<CourseRecord, 'status'> & { status: 'dang_mo' | 'tam_an' }
 const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}đ`
 
 function AdminCourses({ onLogout, onNavigate, onNavigateHome }: Props) {
@@ -27,7 +27,7 @@ function AdminCourses({ onLogout, onNavigate, onNavigateHome }: Props) {
   const load = async () => {
     try {
       const rows = await api<CourseApi[]>('/courses/all')
-      setCourses(rows.map((item) => ({ ...item, linkedClasses: 0, status: item.status === 'dang_mo' ? 'Đang mở' : 'Tạm ẩn' })))
+      setCourses(rows.map((item) => ({ ...item, linkedClasses: Number(item.linkedClasses), status: item.status === 'dang_mo' ? 'Đang mở' : 'Tạm ẩn' })))
     } catch (error) { messageApi.error(errorMessage(error)) }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -82,6 +82,7 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
   const openEdit = (student: StudentRecord) => { form.setFieldsValue(student); setSelected(null); setEditing(student) }
   const save = async (values: StudentForm) => {
     const phone = phoneDigits(values.phone)
+    const email = (values.email ?? '').trim()
     if (students.some((item) => phoneDigits(item.phone) === phone && item.code !== (typeof editing === 'object' && editing ? editing.code : ''))) {
       form.setFields([{ name: 'phone', errors: ['Số điện thoại đã tồn tại.'] }]); return
     }
@@ -89,10 +90,10 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
       if (editing === 'new') {
         const course = courses.find((item) => item.name === values.course)
         if (!course) throw new Error('Khóa học không tồn tại')
-        const result = await api<{ accounts: Array<{ temporaryPassword: string }> }>('/enrollments/import/confirm', json('POST', { courseId: course.id, rows: [{ fullName: values.name.trim(), email: values.email.trim(), phone, birthDate: values.birthDate }] }))
+        const result = await api<{ accounts: Array<{ temporaryPassword: string }> }>('/enrollments/import/confirm', json('POST', { courseId: course.id, rows: [{ fullName: values.name.trim(), email, phone, birthDate: values.birthDate }] }))
         messageApi.success(`Đã ghi danh. Mật khẩu tạm: ${result.accounts[0]?.temporaryPassword}`)
       } else if (editing) {
-        await api(`/users/${editing.id}`, json('PATCH', { fullName: values.name.trim(), email: values.email.trim(), phone, birthDate: values.birthDate }))
+        await api(`/users/${editing.id}`, json('PATCH', { fullName: values.name.trim(), email, phone, birthDate: values.birthDate }))
         messageApi.success('Đã cập nhật hồ sơ.')
       }
       setEditing(null); await load()
@@ -194,7 +195,7 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
         <Form.Item name="name" label="Họ và tên" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập họ tên.' }]}><Input /></Form.Item>
         <Form.Item name="phone" label="Số điện thoại" rules={[{ required: true, message: 'Vui lòng nhập số điện thoại.' }, { validator: (_, value) => !value || validPhone(value) ? Promise.resolve() : Promise.reject(new Error('Số điện thoại phải có đúng 10 chữ số, bắt đầu bằng 0.')) }]}><Input /></Form.Item>
         <Form.Item name="birthDate" label="Ngày sinh" rules={[{ required: true, message: 'Vui lòng chọn ngày sinh.' }, { validator: (_, value) => !value || validBirthDate(value) ? Promise.resolve() : Promise.reject(new Error('Ngày sinh không hợp lệ.')) }]}><Input type="date" /></Form.Item>
-        <Form.Item name="email" label="Email" rules={[{ type: 'email', message: 'Email không hợp lệ.' }]}><Input type="email" /></Form.Item>
+        <Form.Item name="email" label="Email" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập email.' }, { type: 'email', message: 'Email không hợp lệ.' }]}><Input type="email" /></Form.Item>
         <Form.Item name="course" label="Khóa học đăng ký" rules={[{ required: true, message: 'Vui lòng chọn khóa học.' }]}><Select disabled={editing !== 'new'} showSearch optionFilterProp="label" options={courses.map((item) => ({ value: item.name, label: item.name }))} /></Form.Item>
       </Form>
     </Modal>

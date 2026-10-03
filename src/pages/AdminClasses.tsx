@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarBlank, CaretRight, CheckCircle, MagnifyingGlass, MapPin, PencilSimple, Play, Plus, Student, Trash, UsersThree } from '@phosphor-icons/react'
-import { Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Progress, Select, Space, Table, Tag, Typography, message } from 'antd'
+import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Progress, Select, Space, Table, Tag, Typography, message } from 'antd'
 import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
@@ -117,7 +117,8 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
         <Form.Item name="code" label="Mã lớp" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập mã lớp.' }]}><Input placeholder="VD: A2-GT-10" /></Form.Item>
         <Form.Item name="name" label="Tên lớp" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập tên lớp.' }]}><Input /></Form.Item>
         <Form.Item name="courseId" label="Khóa học" rules={[{ required: true, message: 'Vui lòng chọn khóa học.' }]}><Select showSearch optionFilterProp="label" disabled={typeof editing === 'object' && editing !== null && editing.enrolled > 0} options={courses.map((item) => ({ value: item.id, label: item.name }))} /></Form.Item>
-        <Form.Item name="teacherId" label="Giáo viên"><Select allowClear showSearch optionFilterProp="label" options={teachers.map((item) => ({ value: item.id, label: item.fullName }))} /></Form.Item>
+        <Form.Item name="teacherId" label="Giáo viên"><Select allowClear={editing === 'new' || (typeof editing === 'object' && editing !== null && editing.schedule === 'Chưa xếp lịch')} showSearch optionFilterProp="label" options={teachers.map((item) => ({ value: item.id, label: item.fullName }))} /></Form.Item>
+        {typeof editing === 'object' && editing !== null && editing.generatedSessions > 0 && <Alert type="info" showIcon title="Đổi giáo viên sẽ cập nhật các buổi học tương lai" description="Các buổi đã hoàn tất vẫn giữ giáo viên cũ trong lịch sử." style={{ marginBottom: 18 }} />}
         <Form.Item name="startDate" label="Ngày khai giảng" rules={[{ required: true, message: 'Vui lòng chọn ngày khai giảng.' }]}><Input type="date" /></Form.Item>
         <Space align="start" wrap><Form.Item name="sessions" label="Số buổi" rules={[{ required: true, message: 'Vui lòng nhập số buổi.' }]}><InputNumber min={1} /></Form.Item><Form.Item name="capacity" label="Sĩ số tối đa" rules={[{ required: true, message: 'Vui lòng nhập sĩ số.' }]}><InputNumber min={1} /></Form.Item></Space>
       </Form>

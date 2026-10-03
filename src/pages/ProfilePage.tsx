@@ -87,7 +87,7 @@ function ProfilePage({ onBack, onSignedOut }: Props) {
             <Form form={profileForm} layout="vertical" initialValues={{ fullName: user.fullName, phone: user.phone ?? '', birthDate: user.birthDate?.slice(0, 10) ?? '' }} onFinish={updateProfile} requiredMark={false}>
               <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true, message: 'Vui lòng nhập họ tên.' }, { min: 2 }]}><Input autoComplete="name" /></Form.Item>
               <Form.Item label="Email"><Input value={user.email} disabled /></Form.Item>
-              <Form.Item name="phone" label="Số điện thoại" rules={[{ pattern: /^$|^\d{10}$/, message: 'Số điện thoại phải gồm 10 chữ số.' }]}><Input inputMode="tel" autoComplete="tel" /></Form.Item>
+              <Form.Item name="phone" label="Số điện thoại" rules={[{ pattern: /^$|^0\d{9}$/, message: 'Số điện thoại phải có đúng 10 chữ số, bắt đầu bằng 0.' }]}><Input inputMode="tel" autoComplete="tel" /></Form.Item>
               <Form.Item name="birthDate" label="Ngày sinh"><Input type="date" /></Form.Item>
               <Button type="primary" htmlType="submit" loading={saving}>Lưu thay đổi</Button>
             </Form>

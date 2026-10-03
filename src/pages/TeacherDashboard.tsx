@@ -40,7 +40,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
   const [dashboard, setDashboard] = useState<DashboardApi>({ classes: 0, students: 0, sessionsThisWeek: 0, attendanceDue: 0, todaySessions: [] })
   const [classes, setClasses] = useState<ClassRow[]>([])
   useEffect(() => { Promise.all([api<DashboardApi>('/teacher/dashboard'), api<ClassApi[]>('/teacher/classes')]).then(([summary, rows]) => { setDashboard(summary); setClasses(rows.map((item) => { const pending = Number(item.pendingAttendance); const completed = item.status === 'da_ket_thuc'; return { key: item.id, name: item.name, code: item.code, schedule: item.weeklySchedule?.split(',').map((slot) => { const [day, start] = slot.split('|'); return `T${day} · ${start}` }).join(', ') ?? 'Chưa xếp lịch', students: Number(item.students), attendance: Number(item.attendanceRate ?? 0), nextTask: pending ? `Điểm danh (${pending})` : completed ? 'Nhập điểm' : 'Xem lịch', actionPage: pending ? 'teacher-attendance' : completed ? 'teacher-grades' : 'teacher-schedule' } })) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
-  const todaySessions = dashboard.todaySessions.map((item) => ({ id: item.id, time: `${new Date(item.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`, name: item.className, room: item.roomCode, status: item.status === 'da_hoc' ? 'Đã hoàn tất' : 'Sắp diễn ra', color: item.status === 'da_hoc' ? 'green' : 'blue' }))
+  const todaySessions = dashboard.todaySessions.map((item) => { const canAttend = item.status !== 'da_huy' && new Date(item.startsAt.replace(' ', 'T')).getTime() <= Date.now(); return { id: item.id, time: `${new Date(item.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`, name: item.className, room: item.roomCode, status: item.status === 'da_hoc' ? 'Đã hoàn tất' : item.status === 'da_huy' ? 'Đã hủy' : 'Sắp diễn ra', color: item.status === 'da_hoc' ? 'green' : item.status === 'da_huy' ? 'red' : 'blue', canAttend } })
 
   const columns: ColumnsType<ClassRow> = [
     {
@@ -91,7 +91,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
                   <div className="teacher-session-time"><Clock weight="duotone" /><strong>{session.time}</strong></div>
                   <div className="teacher-session-info"><Typography.Text strong>{session.name}</Typography.Text><Typography.Text type="secondary"><MapPin />{session.room}</Typography.Text></div>
                   <Tag color={session.color}>{session.status}</Tag>
-                  <Button onClick={() => onNavigate('teacher-attendance')}>Mở lớp</Button>
+                  <Button disabled={!session.canAttend} onClick={() => { sessionStorage.setItem('teacher-attendance-session', String(session.id)); onNavigate('teacher-attendance') }}>{session.status === 'Đã hủy' ? 'Đã hủy' : session.canAttend ? 'Mở lớp' : 'Chưa đến giờ'}</Button>
                 </Flex>
               ))}
             </Space>

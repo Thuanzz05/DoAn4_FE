@@ -23,6 +23,7 @@ type LoginPageProps = {
 function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [remember, setRemember] = useState(false)
   const [status, setStatus] = useState('')
   const [forgotOpen, setForgotOpen] = useState(false)
   const [resetCodeSent, setResetCodeSent] = useState(false)
@@ -34,7 +35,7 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
   const [forgotError, setForgotError] = useState('')
   const handleGoogle = async (credential: string) => {
     setIsSubmitting(true); setStatus('')
-    try { const session = await api<AuthSession>('/auth/google', json('POST', { credential })); saveSession(session); onAuthenticated(session) }
+    try { const session = await api<AuthSession>('/auth/google', json('POST', { credential })); saveSession(session, remember); onAuthenticated(session) }
     catch (error) { setStatus(errorMessage(error)) }
     finally { setIsSubmitting(false) }
   }
@@ -48,7 +49,7 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
         account: formData.get('username'),
         password: formData.get('password'),
       }))
-      saveSession(session)
+      saveSession(session, remember)
       onAuthenticated(session)
     } catch (error) {
       setStatus(errorMessage(error))
@@ -165,7 +166,7 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
 
               <div className="login-options">
                 <label className="remember-option">
-                  <input type="checkbox" name="remember" />
+                  <input type="checkbox" name="remember" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
                   <span>Ghi nhớ đăng nhập</span>
                 </label>
                 <button type="button" onClick={() => setForgotOpen(true)}>Quên mật khẩu?</button>

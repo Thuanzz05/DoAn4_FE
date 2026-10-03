@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   CalendarBlank,
@@ -117,13 +117,22 @@ function App() {
   const [activeRole, setActiveRole] = useState<Role>('admin')
   const [page, setPage] = useState<Page>(getCurrentPage)
   const [session, setSession] = useState<AuthSession | null>(getSession)
+  const currentPath = useRef(window.location.pathname)
   const role = roleContent[activeRole]
 
   useEffect(() => {
-    const syncPage = () => setPage(getCurrentPage())
+    const syncPage = () => {
+      if (!window.dispatchEvent(new Event('app:history-navigation', { cancelable: true }))) {
+        window.history.pushState({}, '', currentPath.current)
+        return
+      }
+      currentPath.current = window.location.pathname
+      setPage(getCurrentPage())
+    }
     const expireSession = () => {
       setSession(null)
       window.history.replaceState({}, '', '/login')
+      currentPath.current = '/login'
       setPage('login')
     }
     window.addEventListener('popstate', syncPage)
@@ -138,6 +147,7 @@ function App() {
     const required = privateRole(page)
     if ((page === 'profile' && !session) || (required && session?.user.role !== required)) {
       window.history.replaceState({}, '', '/login')
+      currentPath.current = '/login'
       setPage('login')
     }
   }, [page, session])
@@ -235,6 +245,7 @@ function App() {
                                             ? '/student/certificates'
           : '/'
     if (window.location.pathname !== nextPath) window.history.pushState({}, '', nextPath)
+    currentPath.current = nextPath
     setPage(nextPage)
     window.scrollTo({ top: 0, behavior: 'auto' })
   }
