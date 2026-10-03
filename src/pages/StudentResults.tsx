@@ -24,7 +24,7 @@ type Score = { key: string; skill: string; score: number; note: string }
 type Attendance = { key: string; date: string; session: string; status: 'Có mặt' | 'Đi muộn' | 'Vắng'; note: string }
 type ExamResult = { examId: number; enrollmentId: number; examName: string; examDate: string | null; classId: number; classCode: string; className: string; listening: number | null; speaking: number | null; reading: number | null; writing: number | null; average: number | null }
 type ResultApi = { exams: ExamResult[]; attendance: Array<{ sessionId: number; enrollmentId: number; classId: number; className: string; startsAt: string; status: 'co_mat' | 'di_muon' | 'vang'; note: string | null }> }
-type Eligibility = { enrollmentId: number; classId: number; courseName: string; attendance: number; average: number | null; paid: boolean; eligible: boolean; ineligibleReasons: string[] }
+type Eligibility = { enrollmentId: number; classId: number; courseName: string; attendance: number; average: number | null; requiredExams: number; completedExams: number; paid: boolean; eligible: boolean; ineligibleReasons: string[] }
 
 const scoreColumns: ColumnsType<Score> = [
   { title: 'Kỹ năng', dataIndex: 'skill', render: (skill) => <Typography.Text strong>{skill}</Typography.Text> },
@@ -84,6 +84,7 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
       <div className="student-condition-list">
         <div><CheckCircle weight="fill" /><span><strong>Chuyên cần từ 80%</strong><small>Hiện tại: {condition?.attendance ?? 0}%</small></span><Tag color={Number(condition?.attendance ?? 0) >= 80 ? 'green' : 'red'}>{Number(condition?.attendance ?? 0) >= 80 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
         <div><CheckCircle weight="fill" /><span><strong>Điểm trung bình từ 5,0</strong><small>Hiện tại: {condition?.average ?? 'Chưa có'}</small></span><Tag color={Number(condition?.average ?? 0) >= 5 ? 'green' : 'red'}>{Number(condition?.average ?? 0) >= 5 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
+        <div><CheckCircle weight="fill" /><span><strong>Hoàn thành tất cả kỳ thi</strong><small>Hiện tại: {condition?.completedExams ?? 0}/{condition?.requiredExams ?? 0} kỳ thi</small></span><Tag color={condition && condition.requiredExams > 0 && condition.completedExams === condition.requiredExams ? 'green' : 'red'}>{condition && condition.requiredExams > 0 && condition.completedExams === condition.requiredExams ? 'Đạt' : 'Chưa đạt'}</Tag></div>
         <div className={condition?.paid ? '' : 'blocked'}><Receipt weight="fill" /><span><strong>Hoàn tất học phí</strong></span><Tag color={condition?.paid ? 'green' : 'red'}>{condition?.paid ? 'Đạt' : 'Chưa đạt'}</Tag></div>
       </div>
     </Card>
