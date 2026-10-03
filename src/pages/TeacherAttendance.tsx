@@ -51,10 +51,10 @@ function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAtte
 
   const counts = useMemo(() => countAttendance(Object.values(attendance)), [attendance])
   const currentSession = sessions.find((item) => item.id === session)
-  useEffect(() => { api<SessionApi[]>('/teacher/sessions').then((rows) => { setSessions(rows); setSession((current) => current ?? rows[0]?.id) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  useEffect(() => { api<SessionApi[]>('/teacher/sessions').then((rows) => { const requested = Number(sessionStorage.getItem('teacher-attendance-session')); sessionStorage.removeItem('teacher-attendance-session'); setSessions(rows); setSession((current) => current ?? (rows.some((item) => item.id === requested) ? requested : rows[0]?.id)) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
   useEffect(() => { if (!session) return; api<{ students: AttendanceApi[] }>(`/teacher/sessions/${session}/attendance`).then((result) => { setStudents(result.students.map((item) => ({ id: item.enrollmentId, code: item.studentCode, name: item.studentName, rate: Number(item.attendanceRate ?? 0) }))); setAttendance(Object.fromEntries(result.students.map((item) => [item.enrollmentId, item.status === 'co_mat' ? 'present' : item.status === 'di_muon' ? 'late' : item.status === 'vang' ? 'absent' : '']))); setNotes(Object.fromEntries(result.students.map((item) => [item.enrollmentId, item.note ?? '']))); setSaved(result.students.length > 0 && result.students.every((item) => item.status)) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi, session])
-  const setStatus = (id: number, status: AttendanceStatus) => setAttendance((current) => ({ ...current, [id]: status }))
-  const markAllPresent = () => setAttendance(Object.fromEntries(students.map((student) => [student.id, 'present'])) as Record<number, AttendanceStatus>)
+  const setStatus = (id: number, status: AttendanceStatus) => { setAttendance((current) => ({ ...current, [id]: status })); setSaved(false) }
+  const markAllPresent = () => { setAttendance(Object.fromEntries(students.map((student) => [student.id, 'present'])) as Record<number, AttendanceStatus>); setSaved(false) }
 
   const persist = async () => { if (!session) return; try { await api(`/teacher/sessions/${session}/attendance`, json('PUT', { items: students.map((student) => ({ enrollmentId: student.id, status: attendance[student.id] === 'present' ? 'co_mat' : attendance[student.id] === 'late' ? 'di_muon' : 'vang', note: notes[student.id] || null })) })); setSaved(true); messageApi.success('Đã lưu điểm danh cho buổi học.') } catch (error) { messageApi.error(errorMessage(error)) } }
 
@@ -83,7 +83,7 @@ function TeacherAttendance({ onLogout, onNavigate, onNavigateHome }: TeacherAtte
     },
     {
       title: 'Ghi chú', key: 'note',
-      render: (_, student) => <Input value={notes[student.id] ?? ''} placeholder="Thêm ghi chú" onChange={(event) => setNotes((current) => ({ ...current, [student.id]: event.target.value }))} />,
+      render: (_, student) => <Input value={notes[student.id] ?? ''} placeholder="Thêm ghi chú" onChange={(event) => { setNotes((current) => ({ ...current, [student.id]: event.target.value })); setSaved(false) }} />,
     },
   ]
 

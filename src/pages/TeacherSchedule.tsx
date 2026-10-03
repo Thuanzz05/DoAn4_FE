@@ -9,7 +9,7 @@ import {
   UsersThree,
   WarningCircle,
 } from '@phosphor-icons/react'
-import { Alert, Button, Card, Divider, Drawer, Empty, Flex, Space, Tag, Typography, message } from 'antd'
+import { Alert, Avatar, Button, Card, Divider, Drawer, Empty, Flex, Skeleton, Space, Tag, Typography, message } from 'antd'
 import { AdminPageHeader } from './AdminPageKit'
 import TeacherLayout, { type TeacherPage } from './TeacherLayout'
 import './TeacherSchedule.css'
@@ -32,6 +32,7 @@ type Session = {
   status: 'Đã hoàn tất' | 'Sắp diễn ra'
 }
 type SessionApi = { id: number; classCode: string; className: string; startsAt: string; endsAt: string; status: string; roomCode: string; students: number }
+type StudentApi = { enrollmentId: number; studentCode: string; studentName: string; status: 'co_mat' | 'di_muon' | 'vang' | null; attendanceRate: number | null }
 
 const DAY = 86_400_000
 const sameDay = (left: Date, right: Date) => left.toDateString() === right.toDateString()
@@ -47,6 +48,8 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()))
   const [sessions, setSessions] = useState<Session[]>([])
   const [selected, setSelected] = useState<Session | null>(null)
+  const [students, setStudents] = useState<StudentApi[]>([])
+  const [studentsLoading, setStudentsLoading] = useState(false)
   const [messageApi, contextHolder] = message.useMessage()
   const dateFormat = useMemo(() => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }), [])
   const fullDateFormat = useMemo(() => new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }), [])
@@ -67,6 +70,17 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
       }))))
       .catch((error) => messageApi.error(errorMessage(error)))
   }, [messageApi, weekStart])
+
+  useEffect(() => {
+    if (!selected) { setStudents([]); return }
+    let active = true
+    setStudentsLoading(true)
+    api<{ students: StudentApi[] }>(`/teacher/sessions/${selected.id}/attendance`)
+      .then((result) => { if (active) setStudents(result.students) })
+      .catch((error) => { if (active) messageApi.error(errorMessage(error)) })
+      .finally(() => { if (active) setStudentsLoading(false) })
+    return () => { active = false }
+  }, [messageApi, selected])
 
   return (
     <TeacherLayout activePage="teacher-schedule" mainId="teacher-schedule" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
@@ -129,8 +143,12 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
             <span>{selected.status === 'Sắp diễn ra' ? <WarningCircle /> : <CheckCircle />} {selected.status}</span>
           </Space>
           <Divider />
-          <Typography.Title level={5}>Sĩ số lớp</Typography.Title><Typography.Paragraph>{selected.students} học viên</Typography.Paragraph>
-          <Button type="primary" block className="teacher-open-attendance" onClick={() => onNavigate('teacher-attendance')}>Mở điểm danh</Button>
+          <Typography.Title level={5}>Danh sách học viên</Typography.Title>
+          {studentsLoading ? <Skeleton active paragraph={{ rows: 3 }} /> : students.length ? <div className="teacher-student-preview">{students.map((student) => {
+            const attendance = student.status === 'co_mat' ? ['green', 'Có mặt'] : student.status === 'di_muon' ? ['gold', 'Đi muộn'] : student.status === 'vang' ? ['red', 'Vắng'] : ['default', 'Chưa điểm danh']
+            return <Flex key={student.enrollmentId} align="center" gap={10}><Avatar>{student.studentName.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div style={{ flex: 1 }}><Typography.Text strong>{student.studentName}</Typography.Text><br /><Typography.Text type="secondary">{student.studentCode} · Chuyên cần {Number(student.attendanceRate ?? 0)}%</Typography.Text></div><Tag color={attendance[0]}>{attendance[1]}</Tag></Flex>
+          })}</div> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Lớp chưa có học viên" />}
+          <Button type="primary" block className="teacher-open-attendance" onClick={() => { sessionStorage.setItem('teacher-attendance-session', String(selected.id)); onNavigate('teacher-attendance') }}>Mở điểm danh buổi này</Button>
         </>}
       </Drawer>
     </TeacherLayout>

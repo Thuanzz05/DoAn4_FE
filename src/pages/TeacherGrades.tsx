@@ -61,6 +61,7 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
 
   const updateScore = (studentId: number, skill: Skill, value: number | null) => {
     setScores((current) => ({ ...current, [studentId]: { ...(current[studentId] ?? emptyScore()), [skill]: value } }))
+    setSaved(false)
   }
 
   const createExam = async (values: ExamForm) => {

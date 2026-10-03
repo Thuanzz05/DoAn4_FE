@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   ArrowRight,
   CalendarBlank,
@@ -28,16 +29,17 @@ type ClassRow = {
   students: number
   attendance: number
   nextTask: string
+  actionPage: TeacherPage
 }
 type DashboardApi = { classes: number; students: number; sessionsThisWeek: number; attendanceDue: number; todaySessions: Array<{ id: number; className: string; startsAt: string; endsAt: string; roomCode: string; status: string }> }
-type ClassApi = { id: number; name: string; code: string; weeklySchedule: string | null; students: number }
+type ClassApi = { id: number; name: string; code: string; status: string; weeklySchedule: string | null; students: number; attendanceRate: number | null; pendingAttendance: number }
 import { api, errorMessage } from '../api'
 
 function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashboardProps) {
   const [messageApi, contextHolder] = message.useMessage()
   const [dashboard, setDashboard] = useState<DashboardApi>({ classes: 0, students: 0, sessionsThisWeek: 0, attendanceDue: 0, todaySessions: [] })
   const [classes, setClasses] = useState<ClassRow[]>([])
-  useEffect(() => { Promise.all([api<DashboardApi>('/teacher/dashboard'), api<ClassApi[]>('/teacher/classes')]).then(([summary, rows]) => { setDashboard(summary); setClasses(rows.map((item) => ({ key: item.id, name: item.name, code: item.code, schedule: item.weeklySchedule?.split(',').map((slot) => { const [day, start] = slot.split('|'); return `T${day} · ${start}` }).join(', ') ?? 'Chưa xếp lịch', students: Number(item.students), attendance: 0, nextTask: 'Điểm danh' }))) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  useEffect(() => { Promise.all([api<DashboardApi>('/teacher/dashboard'), api<ClassApi[]>('/teacher/classes')]).then(([summary, rows]) => { setDashboard(summary); setClasses(rows.map((item) => { const pending = Number(item.pendingAttendance); const completed = item.status === 'da_ket_thuc'; return { key: item.id, name: item.name, code: item.code, schedule: item.weeklySchedule?.split(',').map((slot) => { const [day, start] = slot.split('|'); return `T${day} · ${start}` }).join(', ') ?? 'Chưa xếp lịch', students: Number(item.students), attendance: Number(item.attendanceRate ?? 0), nextTask: pending ? `Điểm danh (${pending})` : completed ? 'Nhập điểm' : 'Xem lịch', actionPage: pending ? 'teacher-attendance' : completed ? 'teacher-grades' : 'teacher-schedule' } })) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
   const todaySessions = dashboard.todaySessions.map((item) => ({ id: item.id, time: `${new Date(item.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`, name: item.className, room: item.roomCode, status: item.status === 'da_hoc' ? 'Đã hoàn tất' : 'Sắp diễn ra', color: item.status === 'da_hoc' ? 'green' : 'blue' }))
 
   const columns: ColumnsType<ClassRow> = [
@@ -57,7 +59,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
       title: '',
       key: 'action',
       align: 'right',
-      render: (_, record) => <Button type="link" onClick={() => record.nextTask === 'Nhập điểm' ? onNavigate('teacher-grades') : onNavigate('teacher-attendance')}>{record.nextTask}<ArrowRight /></Button>,
+      render: (_, record) => <Button type="link" onClick={() => onNavigate(record.actionPage)}>{record.nextTask}<ArrowRight /></Button>,
     },
   ]
 
@@ -101,7 +103,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
         </Col>
       </Row>
 
-      <Card title="Lớp đang phụ trách" className="admin-table-card teacher-classes-card" extra={<Typography.Text type="secondary">Học kỳ 2 · 2026</Typography.Text>}>
+      <Card title="Lớp đang phụ trách" className="admin-table-card teacher-classes-card" extra={<Typography.Text type="secondary">Dữ liệu hiện tại</Typography.Text>}>
         <Table columns={columns} dataSource={classes} pagination={false} scroll={{ x: 760 }} />
       </Card>
     </TeacherLayout>
@@ -109,4 +111,3 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
 }
 
 export default TeacherDashboard
-import { useEffect, useState } from 'react'
