@@ -13,6 +13,7 @@ import { Avatar, Badge, Button, ConfigProvider, Drawer, Flex, Grid, Layout, Menu
 import type { MenuProps } from 'antd'
 import { workspaceTheme } from './workspaceTheme'
 import { useWorkspace } from './useWorkspace'
+import WorkspaceNotifications from './WorkspaceNotifications'
 import './AdminAnt.css'
 
 type StudentLayoutProps = {
@@ -40,7 +41,8 @@ function StudentLayout({ activePage, children, mainId, onLogout, onNavigate, onN
   const screens = Grid.useBreakpoint()
   const desktop = Boolean(screens.lg)
   const today = new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }).format(new Date())
-  const { user, notifications, unread, readAll } = useWorkspace()
+  const workspace = useWorkspace()
+  const { user, unread } = workspace
   const navigation = <Menu mode="inline" theme="dark" selectedKeys={[activePage]} items={navItems} onClick={({ key }) => { setMenuOpen(false); onNavigate(key as StudentPage) }} />
   const brand = <button className="ant-admin-brand" type="button" onClick={onNavigateHome}><strong>Trung tâm</strong><span>Không gian học viên</span></button>
   const initials = user?.fullName.split(' ').slice(-2).map((part) => part[0]).join('').toUpperCase() || 'HV'
@@ -61,17 +63,13 @@ function StudentLayout({ activePage, children, mainId, onLogout, onNavigate, onN
                 {!desktop && <Button icon={<List weight="bold" />} onClick={() => setMenuOpen(true)} aria-label="Mở điều hướng" />}
                 <div className="ant-admin-date"><span>Dữ liệu hệ thống</span><time dateTime={new Date().toISOString()}>{today}</time></div>
               </Flex>
-              <Space size={14}><Badge count={unread} size="small"><Button icon={<Bell />} onClick={() => { setNotificationsOpen(true); void readAll() }} aria-label="Xem thông báo" /></Badge><Typography.Text strong className="ant-admin-role">Học viên</Typography.Text></Space>
+              <Space size={14}><Badge count={unread} size="small"><Button icon={<Bell />} onClick={() => { setNotificationsOpen(true); void workspace.refresh() }} aria-label="Xem thông báo" /></Badge><Typography.Text strong className="ant-admin-role">Học viên</Typography.Text></Space>
             </Flex>
           </Layout.Header>
           <Layout.Content className="ant-admin-content"><main id={mainId}>{children}</main></Layout.Content>
         </Layout>
 
-        <Drawer title="Thông báo của bạn" size={400} open={notificationsOpen} onClose={() => setNotificationsOpen(false)}>
-          <Space orientation="vertical" size={0} className="ant-admin-notifications">
-            {notifications.map((notification) => <Flex gap={12} key={notification.id}><Bell weight="duotone" /><div><Typography.Text strong>{notification.title}</Typography.Text><Typography.Paragraph type="secondary">{notification.content}</Typography.Paragraph></div></Flex>)}
-          </Space>
-        </Drawer>
+        <WorkspaceNotifications {...workspace} open={notificationsOpen} onClose={() => setNotificationsOpen(false)} />
       </Layout>
     </ConfigProvider>
   )

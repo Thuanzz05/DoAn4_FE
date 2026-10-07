@@ -8,11 +8,12 @@ import {
   MapPin,
   Student,
 } from '@phosphor-icons/react'
-import { Alert, Button, Card, Divider, Drawer, Empty, Flex, Segmented, Space, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Divider, Drawer, Empty, Flex, Segmented, Skeleton, Space, Tag, Typography } from 'antd'
 import { AdminPageHeader } from './AdminPageKit'
 import StudentLayout, { type StudentPage } from './StudentLayout'
 import './StudentSchedule.css'
 import { api, errorMessage } from '../api'
+import StudentClasses from './StudentClasses'
 
 type StudentScheduleProps = {
   onLogout: () => void
@@ -43,8 +44,22 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
   const [anchor, setAnchor] = useState(() => new Date())
   const [sessions, setSessions] = useState<Session[]>([])
   const [selected, setSelected] = useState<Session | null>(null)
-  const [messageApi, contextHolder] = message.useMessage()
-  useEffect(() => { api<SessionApi[]>('/student/sessions').then((rows) => setSessions(rows.map((item) => ({ id: item.id, date: String(item.startsAt).slice(0, 10), time: `${new Date(item.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`, course: item.className, room: item.roomCode, teacher: item.teacherName, classCode: item.classCode, status: item.status })))).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  const [focusedClassCode, setFocusedClassCode] = useState<string>()
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [reload, setReload] = useState(0)
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true); setError('')
+    api<SessionApi[]>('/student/sessions', { signal: controller.signal }).then((rows) => {
+      if (controller.signal.aborted) return
+      setSessions(rows.map((item) => ({ id: item.id, date: String(item.startsAt).slice(0, 10),
+        time: `${new Date(item.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`,
+        course: item.className, room: item.roomCode, teacher: item.teacherName, classCode: item.classCode, status: item.status })))
+    }).catch((err) => { if (!controller.signal.aborted) setError(errorMessage(err)) })
+      .finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [reload])
   const shortDate = useMemo(() => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }), [])
   const fullDate = useMemo(() => new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }), [])
   const weekStart = startOfWeek(anchor)
@@ -61,7 +76,6 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
 
   return (
     <StudentLayout activePage="student-schedule" mainId="student-schedule" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-      {contextHolder}
       <AdminPageHeader
         kicker="Lịch học cá nhân"
         title="Thời khóa biểu của tôi"
@@ -78,7 +92,9 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
         </Flex>
         <Divider />
 
-        {view === 'week' ? (
+        {loading ? <Skeleton active paragraph={{ rows: 6 }} /> : error ? (
+          <Alert type="error" showIcon title={error} action={<Button onClick={() => setReload((value) => value + 1)}>Thử lại</Button>} />
+        ) : view === 'week' ? (
           <div className="student-week-scroll"><div className="student-week-grid">
             {weekDays.map((date) => {
               const daySessions = sessions.filter((session) => session.date === formatKey(date))
@@ -92,6 +108,7 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
           </div></div>
         )}
       </Card>
+      <StudentClasses focusedClassCode={focusedClassCode} onCloseFocus={() => setFocusedClassCode(undefined)} />
 
       <Drawer title={selected?.course} open={Boolean(selected)} onClose={() => setSelected(null)} size={430}>
         {selected ? <>
@@ -104,7 +121,7 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
             <span><Student />Lớp {selected.classCode}</span>
           </Space>
           <Divider />
-          <Card size="small" className="student-course-detail"><Typography.Text type="secondary">Lớp học</Typography.Text><strong>{selected.course}</strong><Typography.Text type="secondary">Mã lớp {selected.classCode}</Typography.Text></Card>
+          <Card size="small" className="student-course-detail"><Typography.Text type="secondary">Lớp học</Typography.Text><strong>{selected.course}</strong><Typography.Text type="secondary">Mã lớp {selected.classCode}</Typography.Text><Button onClick={() => { setFocusedClassCode(selected.classCode); setSelected(null) }}>Xem chi tiết lớp học</Button></Card>
         </> : <Empty />}
       </Drawer>
     </StudentLayout>

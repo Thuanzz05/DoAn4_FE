@@ -46,6 +46,13 @@ export function clearSession(): void {
   sessionStorage.removeItem(sessionKey)
 }
 
+function expireSession(status: number, session: AuthSession | null): void {
+  if (status === 401 && session) {
+    clearSession()
+    window.dispatchEvent(new Event('auth:expired'))
+  }
+}
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const session = getSession()
   const headers = new Headers(init.headers)
@@ -54,10 +61,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(`${apiUrl}${path}`, { ...init, headers })
   const body = response.status === 204 ? null : await response.json().catch(() => null) as { data?: T; message?: string; code?: string } | null
   if (!response.ok) {
-    if (response.status === 401 && session) {
-      clearSession()
-      window.dispatchEvent(new Event('auth:expired'))
-    }
+    expireSession(response.status, session)
     throw new ApiError(response.status, body?.message ?? 'Không thể kết nối máy chủ', body?.code)
   }
   return (body?.data ?? body) as T
@@ -68,6 +72,7 @@ export async function apiBlob(path: string): Promise<Blob> {
   const response = await fetch(`${apiUrl}${path}`, { headers: session ? { Authorization: `Bearer ${session.token}` } : {} })
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { message?: string } | null
+    expireSession(response.status, session)
     throw new ApiError(response.status, body?.message ?? 'Không thể tải tệp')
   }
   return response.blob()

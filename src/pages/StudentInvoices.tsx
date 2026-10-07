@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { CalendarBlank, CheckCircle, ClockCountdown, Receipt, WarningCircle } from '@phosphor-icons/react'
-import { Alert, Button, Card, Descriptions, Drawer, Flex, Table, Tabs, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Descriptions, Drawer, Flex, Table, Tabs, Tag, Typography } from 'antd'
 import type { TableProps } from 'antd'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import StudentLayout, { type StudentPage } from './StudentLayout'
@@ -19,8 +19,15 @@ const statusColor: Record<DisplayStatus, string> = { chua_thanh_toan: 'gold', qu
 function StudentInvoices({ onLogout, onNavigate, onNavigateHome }: Props) {
   const [selected, setSelected] = useState<Invoice | null>(null)
   const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [messageApi, contextHolder] = message.useMessage()
-  useEffect(() => { api<Invoice[]>('/student/invoices').then(setInvoices).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const load = useCallback(async () => {
+    setLoading(true); setLoadError(null)
+    try { setInvoices(await api<Invoice[]>('/student/invoices')) }
+    catch (error) { setLoadError(errorMessage(error)) }
+    finally { setLoading(false) }
+  }, [])
+  useEffect(() => { void load() }, [load])
   const due = invoices.filter((invoice) => invoice.status === 'chua_thanh_toan').sort((left, right) => String(left.dueAt).localeCompare(String(right.dueAt)))
   const paid = invoices.filter((invoice) => invoice.status === 'da_thanh_toan')
   const canceled = invoices.filter((invoice) => invoice.status === 'da_huy')
@@ -36,9 +43,9 @@ function StudentInvoices({ onLogout, onNavigate, onNavigateHome }: Props) {
   ]
 
   return <StudentLayout activePage="student-invoices" mainId="student-invoices" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-    {contextHolder}
-    <AdminPageHeader kicker="Tài chính học tập" title="Học phí của tôi" description="Tra cứu công nợ và các khoản đã được trung tâm xác nhận thanh toán." />
+    <AdminPageHeader kicker="Tài chính học tập" title="Học phí của tôi" description="Tra cứu công nợ và các khoản đã được trung tâm xác nhận thanh toán." actions={<Button loading={loading} onClick={() => void load()}>Làm mới</Button>} />
     <Alert className="student-account-alert" type="info" showIcon title="Thanh toán trọn khóa" description="Nộp toàn bộ học phí bằng tiền mặt hoặc chuyển khoản ngoài hệ thống; trung tâm xác nhận sau khi nhận đủ. Chưa hỗ trợ trả góp hoặc hoàn tiền trong ứng dụng." />
+    {loading ? <Card loading className="student-account-card" /> : loadError ? <Alert type="error" showIcon title="Chưa tải được thông tin học phí" description={loadError} action={<Button onClick={() => void load()}>Thử lại</Button>} /> : <>
     <AdminSummary items={[
       { label: 'Công nợ hiện tại', value: money(totalDue), detail: `${due.length} hóa đơn chưa thanh toán`, icon: <Receipt weight="duotone" />, tone: due.length ? 'danger' : 'success' },
       { label: 'Hạn thanh toán', value: due[0] ? date(due[0].dueAt) : '—', detail: due[0]?.code ?? 'Không có hóa đơn đến hạn', icon: <ClockCountdown weight="duotone" /> },
@@ -52,6 +59,7 @@ function StudentInvoices({ onLogout, onNavigate, onNavigateHome }: Props) {
         { key: 'canceled', label: `Đã hủy (${canceled.length})`, children: <Table rowKey="code" columns={columns} dataSource={canceled} pagination={false} scroll={{ x: 820 }} /> },
       ]} />
     </Card>
+    </>}
     <Drawer title="Chi tiết hóa đơn" size={440} open={Boolean(selected)} onClose={() => setSelected(null)}>
       {selected && <>
         <Flex gap={12} align="center" className="student-account-drawer-heading"><Receipt size={34} weight="duotone" /><div><Typography.Title level={3}>{selected.code}</Typography.Title><Tag color={statusColor[displayStatus(selected)]}>{statusLabel[displayStatus(selected)]}</Tag></div></Flex>

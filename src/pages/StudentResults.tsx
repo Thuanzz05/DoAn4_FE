@@ -13,6 +13,7 @@ import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import StudentLayout, { type StudentPage } from './StudentLayout'
 import './StudentResults.css'
 import { api, errorMessage } from '../api'
+import { enrollmentLabels } from './enrollmentLabels'
 
 type StudentResultsProps = {
   onLogout: () => void
@@ -119,7 +120,7 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
   return (
     <StudentLayout activePage="student-results" mainId="student-results" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
       {contextHolder}
-      <AdminPageHeader kicker="Kết quả học tập" title="Điểm số và chuyên cần" description="Theo dõi từng khóa học, kể cả lớp chưa có kỳ thi." actions={<Space wrap><Select aria-label="Chọn khóa và lớp học" value={enrollmentId} loading={loading} onChange={(value) => { setEnrollmentId(value); setExamId(result.exams.find((item) => item.enrollmentId === value)?.examId) }} disabled={!eligibility.length} placeholder="Chọn khóa / lớp" style={{ minWidth: 240, maxWidth: '100%' }} options={eligibility.map((item) => ({ value: item.enrollmentId, label: `${item.courseName} · ${item.classCode ?? 'Chưa xếp lớp'}${item.className ? ` · ${item.className}` : ''}` }))} /><Select aria-label="Chọn kỳ thi" value={exam?.examId} onChange={setExamId} disabled={!exams.length} placeholder="Chưa có kỳ thi" style={{ minWidth: 200, maxWidth: '100%' }} options={exams.map((item) => ({ value: item.examId, label: item.examName }))} /></Space>} />
+      <AdminPageHeader kicker="Kết quả học tập" title="Điểm số và chuyên cần" description="Theo dõi từng khóa học, kể cả lớp chưa có kỳ thi." actions={<Space wrap><Select aria-label="Chọn khóa và lớp học" value={enrollmentId} loading={loading} onChange={(value) => { setEnrollmentId(value); setExamId(result.exams.find((item) => item.enrollmentId === value)?.examId) }} disabled={!eligibility.length} placeholder="Chọn khóa / lớp" style={{ minWidth: 240, maxWidth: '100%' }} options={eligibility.map((item) => ({ value: item.enrollmentId, label: `${item.courseName} · ${enrollmentLabels[item.enrollmentStatus] ?? item.enrollmentStatus} · ${item.classCode ?? 'Chưa xếp lớp'}${item.className ? ` · ${item.className}` : ''}` }))} /><Select aria-label="Chọn kỳ thi" value={exam?.examId} onChange={setExamId} disabled={!exams.length} placeholder="Chưa có kỳ thi" style={{ minWidth: 200, maxWidth: '100%' }} options={exams.map((item) => ({ value: item.examId, label: item.examName }))} /></Space>} />
       <AdminSummary items={[
         { label: 'Điểm trung bình kỳ thi', value: scoreLabel(average), detail: exam?.examName ?? 'Chưa có kỳ thi', icon: <ChartBar weight="duotone" /> },
         { label: 'Chuyên cần', value: expectedAttendance ? `${rate.toFixed(1)}%` : '—', detail: `${recordedAttendance}/${expectedAttendance} buổi có điểm danh`, icon: <CalendarCheck weight="duotone" />, tone: rate >= 80 ? 'success' : undefined },

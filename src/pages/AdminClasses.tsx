@@ -5,6 +5,7 @@ import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import { api, errorMessage, json } from '../api'
+import AcademicDetails from './AcademicDetails'
 
 type ClassStatus = 'Đang học' | 'Sắp khai giảng' | 'Đã kết thúc' | 'Đã hủy'
 type ClassRecord = { id: number; code: string; name: string; course: string; courseId: number; startDate: string; sessions: number; generatedSessions: number; effectiveSessions: number; completedSessions: number; capacity: number; enrolled: number; teacher: string; teacherId: number | null; schedule: string; room: string; status: ClassStatus; progress: number }
@@ -179,6 +180,7 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
           {
             key: 'sessions', label: `Buổi học (${classSessions.length})`, children: <Table rowKey="id" size="small" loading={sessionsLoading} columns={sessionColumns} dataSource={classSessions} pagination={{ pageSize: 8, hideOnSinglePage: true }} scroll={{ x: 650 }} locale={{ emptyText: selected.generatedSessions ? 'Không có buổi học' : 'Hãy tạo các buổi học từ tab Tổng quan' }} />,
           },
+          { key: 'academic', label: 'Học viên, điểm danh và điểm', children: <AcademicDetails classId={selected.id} /> },
         ]} />
       </>}
     </Drawer>

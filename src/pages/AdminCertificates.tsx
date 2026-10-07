@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowClockwise, CaretRight, Certificate, FilePdf, GraduationCap, MagnifyingGlass, Receipt, ShieldCheck, XCircle } from '@phosphor-icons/react'
-import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, Modal, Select, Space, Table, Tag, Typography, message } from 'antd'
+import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, Modal, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd'
 import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import { api, errorMessage, json } from '../api'
+import AdminExams from './AdminExams'
+import CertificateCorrectionHistory from './CertificateCorrectionHistory'
 
 type CertificateStatus = 'Chờ xét' | 'Đã xác nhận' | 'Đã cấp'
 type CertificateFilter = 'Tất cả' | 'Đủ điều kiện' | 'Không đủ điều kiện' | 'Đã cấp'
@@ -19,6 +21,7 @@ function AdminCertificates({ onLogout, onNavigate, onNavigateHome }: Props) {
   const [candidates, setCandidates] = useState<Candidate[]>([]); const [query, setQuery] = useState(''); const [className, setClassName] = useState('Tất cả'); const [filter, setFilter] = useState<CertificateFilter>('Tất cả')
   const [selectedIds, setSelectedIds] = useState<React.Key[]>([]); const [detail, setDetail] = useState<Candidate | null>(null); const [messageApi, contextHolder] = message.useMessage()
   const [issuing, setIssuing] = useState(false)
+  const [tab, setTab] = useState('certificates')
   const [correcting, setCorrecting] = useState<Candidate | null>(null)
   const [correctionForm] = Form.useForm<Correction>()
   const [savingCorrection, setSavingCorrection] = useState(false)
@@ -52,9 +55,12 @@ function AdminCertificates({ onLogout, onNavigate, onNavigateHome }: Props) {
     { title: '', key: 'action', width: 52, render: (_, item) => <Button icon={<CaretRight />} onClick={() => setDetail(item)} aria-label={`Xem hồ sơ ${item.studentName}`} /> },
   ]
   return <AdminLayout activePage="certificates" mainId="certificate-management" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-    {contextHolder}{modalContextHolder}<AdminPageHeader kicker="Kết quả cuối khóa" title="Thi và chứng chỉ" description="Xét điều kiện, xác nhận danh sách và quản lý lịch sử cấp chứng chỉ." actions={<Space wrap><Button icon={<ShieldCheck />} onClick={confirm} disabled={!selectedIds.length}>Xác nhận ({selectedIds.length})</Button><Button type="primary" icon={<FilePdf />} loading={issuing} onClick={issueAll} disabled={!confirmedCount}>Phát hành PDF ({confirmedCount})</Button></Space>} />
+    {contextHolder}{modalContextHolder}<AdminPageHeader kicker="Kết quả cuối khóa" title="Thi và chứng chỉ" description="Xét điều kiện, xác nhận danh sách và quản lý lịch sử cấp chứng chỉ." actions={tab === 'certificates' ? <Space wrap><Button icon={<ShieldCheck />} onClick={confirm} disabled={!selectedIds.length}>Xác nhận ({selectedIds.length})</Button><Button type="primary" icon={<FilePdf />} loading={issuing} onClick={issueAll} disabled={!confirmedCount}>Phát hành PDF ({confirmedCount})</Button></Space> : undefined} />
+    <Tabs activeKey={tab} onChange={setTab} items={[{ key: 'certificates', label: 'Chứng chỉ' }, { key: 'exams', label: 'Kỳ thi và hạn nhập điểm' }]} />
+    {tab === 'exams' ? <AdminExams /> : <>
     <AdminSummary items={[{ label: 'Đủ điều kiện', value: candidates.filter((item) => eligible(item) && item.status !== 'Đã cấp').length, detail: 'Backend đã kiểm tra đủ điều kiện', icon: <GraduationCap weight="duotone" />, tone: 'success' }, { label: 'Chưa đủ điều kiện', value: candidates.filter((item) => !eligible(item)).length, detail: 'Xem lý do trong hồ sơ', icon: <XCircle weight="duotone" />, tone: 'danger' }, { label: 'Đã cấp', value: candidates.filter((item) => item.status === 'Đã cấp').length, detail: 'Có thể tra cứu và tải PDF', icon: <Certificate weight="duotone" /> }]} />
     <Card className="admin-table-card" title="Danh sách xét cấp" extra={<Space wrap><Input allowClear prefix={<MagnifyingGlass />} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Học viên, lớp hoặc mã" /><Select value={filter} onChange={setFilter} options={['Tất cả', 'Đủ điều kiện', 'Không đủ điều kiện', 'Đã cấp'].map((value) => ({ value, label: value }))} /><Select value={className} onChange={setClassName} options={['Tất cả', ...new Set(candidates.map((item) => item.className))].map((value) => ({ value, label: value }))} /></Space>}><Table rowKey="id" columns={columns} dataSource={data} scroll={{ x: 940 }} rowSelection={{ selectedRowKeys: selectedIds, onChange: setSelectedIds, getCheckboxProps: (item) => ({ disabled: !eligible(item) || item.status !== 'Chờ xét' }) }} pagination={{ pageSize: 6, showTotal: (total) => `${total} học viên` }} /></Card>
+    </>}
     <Drawer size={460} title="Hồ sơ xét cấp" open={Boolean(detail)} onClose={() => setDetail(null)}>{detail && <>
       <Flex align="center" gap={12}><Certificate size={38} /><div><Typography.Title className="admin-drawer-title" level={3}>{detail.studentName}</Typography.Title><Typography.Text type="secondary">{detail.studentCode} · {detail.className}</Typography.Text></div></Flex>
       <Space orientation="vertical" style={{ width: '100%', marginTop: 22 }}>
@@ -66,6 +72,7 @@ function AdminCertificates({ onLogout, onNavigate, onNavigateHome }: Props) {
         <Alert type={eligible(detail) ? 'success' : 'warning'} showIcon title={eligible(detail) ? 'Đủ điều kiện cấp chứng chỉ' : 'Chưa đủ điều kiện cấp chứng chỉ'} description={detail.ineligibleReasons.join('; ')} />
         {detail.status === 'Đã xác nhận' && <Button block onClick={() => openCorrection(detail)}>Đính chính thông tin trước phát hành</Button>}
       </Space>
+      {detail.certificateId && <CertificateCorrectionHistory certificateId={detail.certificateId} />}
       {detail.status === 'Đã cấp' && <><Descriptions bordered column={1} size="small" style={{ marginTop: 20 }} items={[{ key: 'code', label: 'Mã chứng chỉ', children: detail.certificateCode }, { key: 'course', label: 'Khóa học', children: detail.course }, { key: 'issued', label: 'Ngày cấp', children: detail.issuedAt && date(String(detail.issuedAt).slice(0, 10)) }]} /><Space orientation="vertical" style={{ width: '100%', marginTop: 16 }}><Button block type="primary" icon={<FilePdf />} disabled={!detail.pdfPath} onClick={() => detail.pdfPath && window.open(detail.pdfPath, '_blank', 'noopener,noreferrer')}>Mở chứng chỉ PDF</Button><Button block icon={<ArrowClockwise />} onClick={() => reissue(detail)}>Tạo lại PDF chứng chỉ</Button></Space></>}
     </>}</Drawer>
     <Modal title="Đính chính hồ sơ chưa phát hành" open={Boolean(correcting)} onCancel={() => !savingCorrection && setCorrecting(null)} onOk={() => correctionForm.submit()} confirmLoading={savingCorrection} okText="Lưu đính chính">

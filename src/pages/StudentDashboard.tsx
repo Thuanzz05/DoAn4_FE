@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import {
   ArrowRight,
   CalendarBlank,
@@ -11,11 +12,12 @@ import {
   Student,
   WarningCircle,
 } from '@phosphor-icons/react'
-import { Alert, Button, Card, Col, Flex, Progress, Row, Space, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Col, Flex, Progress, Row, Skeleton, Space, Tag, Typography } from 'antd'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import StudentLayout, { type StudentPage } from './StudentLayout'
 import './StudentDashboard.css'
 import { api, errorMessage } from '../api'
+import StudentClasses from './StudentClasses'
 
 type StudentDashboardProps = {
   onLogout: () => void
@@ -27,9 +29,10 @@ type Dashboard = { user: { fullName: string }; activeClasses: number; present: n
 const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}đ`
 
 function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashboardProps) {
-  const [messageApi, contextHolder] = message.useMessage()
   const [data, setData] = useState<Dashboard>()
-  useEffect(() => { api<Dashboard>('/student/dashboard').then(setData).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  useEffect(() => { let active = true; api<Dashboard>('/student/dashboard').then((result) => { if (active) setData(result) }).catch((err) => { if (active) setError(errorMessage(err)) }).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [])
   const expectedAttendance = Number(data?.expectedAttendance ?? 0)
   const recordedAttendance = Number(data?.recordedAttendance ?? 0)
   const attendanceRate = Number(data?.attendanceRate ?? 0)
@@ -44,7 +47,8 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
 
   return (
     <StudentLayout activePage="student" mainId="student-dashboard" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-      {contextHolder}
+      {error && <Alert type="error" showIcon title={error} />}
+      {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : data && <>
       <AdminPageHeader
         kicker="Không gian học viên"
         title={`Chào bạn, ${data?.user.fullName ?? 'học viên'}`}
@@ -67,7 +71,7 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
             <div className="student-next-class">
               <div className="student-class-date"><span>{startsAt?.toLocaleDateString('vi-VN', { weekday: 'long' }) ?? 'Chưa có'}</span><strong>{startsAt?.getDate() ?? '—'}</strong><small>{startsAt ? `Tháng ${startsAt.getMonth() + 1}` : 'lịch học'}</small></div>
               <div className="student-class-info">
-                <Tag color="blue">Sắp diễn ra</Tag>
+                {next && <Tag color="blue">Sắp diễn ra</Tag>}
                 <Typography.Title level={3}>{next?.className ?? 'Chưa có buổi học sắp tới'}</Typography.Title>
                 {next && <Space wrap size={18}><span><Clock />{new Date(next.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–{new Date(next.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span><span><MapPin />{next.roomCode}</span><span><ChalkboardTeacher />GV. {next.teacherName}</span></Space>}
               </div>
@@ -94,9 +98,10 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
           </Card>
         </Col>
       </Row>
+      <StudentClasses />
+      </>}
     </StudentLayout>
   )
 }
 
 export default StudentDashboard
-import { useEffect, useState } from 'react'

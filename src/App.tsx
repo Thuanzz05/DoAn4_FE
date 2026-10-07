@@ -422,10 +422,10 @@ function App() {
             </ol>
             <aside className="rule-sheet" aria-label="Quy tắc kiểm tra điều kiện">
               <div className="rule-sheet-heading"><span>Kiểm tra điều kiện</span><span className="status-open">Tự động</span></div>
-              <h3>Điều kiện dự thi được kiểm tra tự động.</h3>
-              <div className="rule-row passed"><Check aria-hidden="true" weight="bold" /><span>Chuyên cần theo quy định</span><strong>Bắt buộc</strong></div>
+              <h3>Điều kiện học tập được kiểm tra tự động.</h3>
+              <div className="rule-row passed"><Check aria-hidden="true" weight="bold" /><span>Chuyên cần từ 80% để cấp chứng chỉ</span><strong>Chứng chỉ</strong></div>
               <div className="rule-row blocked"><LockKey aria-hidden="true" weight="fill" /><span>Học phí đã xác nhận</span><strong>Bắt buộc</strong></div>
-              <p className="rule-result">Hệ thống chỉ mở quyền dự thi khi học viên đáp ứng đầy đủ điều kiện.</p>
+              <p className="rule-result">Hoàn tất học phí để dự thi; đủ chuyên cần và điểm của tất cả kỳ thi để xét chứng chỉ.</p>
             </aside>
           </div>
         </section>
