@@ -23,15 +23,16 @@ type StudentDashboardProps = {
   onNavigateHome: () => void
 }
 
-type Dashboard = { user: { fullName: string }; activeClasses: number; present: number; late: number; absent: number; courseProgress: number; issuedCertificates: number; approvedCertificates: number; outstanding: number; nearestDueDate: string | null; nextSession: null | { className: string; startsAt: string; endsAt: string; roomCode: string; teacherName: string } }
+type Dashboard = { user: { fullName: string }; activeClasses: number; present: number; late: number; absent: number; attendanceRate: number; expectedAttendance: number; recordedAttendance: number; courseProgress: number; issuedCertificates: number; approvedCertificates: number; outstanding: number; nearestDueDate: string | null; nextSession: null | { className: string; startsAt: string; endsAt: string; roomCode: string; teacherName: string } }
 const money = (value: number) => `${new Intl.NumberFormat('vi-VN').format(value)}đ`
 
 function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashboardProps) {
   const [messageApi, contextHolder] = message.useMessage()
   const [data, setData] = useState<Dashboard>()
   useEffect(() => { api<Dashboard>('/student/dashboard').then(setData).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
-  const totalAttendance = Number(data?.present ?? 0) + Number(data?.late ?? 0) + Number(data?.absent ?? 0)
-  const attendanceRate = totalAttendance ? Math.round((Number(data?.present ?? 0) + Number(data?.late ?? 0)) * 100 / totalAttendance) : 0
+  const expectedAttendance = Number(data?.expectedAttendance ?? 0)
+  const recordedAttendance = Number(data?.recordedAttendance ?? 0)
+  const attendanceRate = Number(data?.attendanceRate ?? 0)
   const next = data?.nextSession
   const startsAt = next ? new Date(next.startsAt) : null
   const issuedCertificates = Number(data?.issuedCertificates ?? 0)
@@ -53,7 +54,7 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
 
       <AdminSummary items={[
         { label: 'Lớp đang học', value: Number(data?.activeClasses ?? 0), detail: 'Lớp đang hoạt động', icon: <Student weight="duotone" /> },
-        { label: 'Chuyên cần', value: `${attendanceRate}%`, detail: `${data?.present ?? 0} có mặt · ${data?.late ?? 0} muộn · ${data?.absent ?? 0} vắng`, icon: <CheckCircle weight="duotone" />, tone: 'success' },
+        { label: 'Chuyên cần', value: expectedAttendance ? `${attendanceRate.toFixed(1)}%` : '—', detail: `${recordedAttendance}/${expectedAttendance} buổi đã điểm danh · ${expectedAttendance - recordedAttendance} buổi còn thiếu`, icon: <CheckCircle weight="duotone" />, tone: attendanceRate >= 80 ? 'success' : undefined },
         { label: 'Buổi tiếp theo', value: next ? startsAt?.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) ?? '—' : '—', detail: next?.className ?? 'Chưa có lịch', icon: <ChartBar weight="duotone" /> },
         { label: 'Công nợ', value: money(Number(data?.outstanding ?? 0)), detail: data?.nearestDueDate ? `Hạn ${new Date(data.nearestDueDate).toLocaleDateString('vi-VN')}` : 'Không còn công nợ', icon: <Receipt weight="duotone" />, tone: Number(data?.outstanding ?? 0) ? 'danger' : 'success' },
       ]} />

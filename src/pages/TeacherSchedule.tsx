@@ -33,7 +33,7 @@ type Session = {
   status: 'Đã hoàn tất' | 'Sắp diễn ra' | 'Đã hủy'
 }
 type SessionApi = { id: number; classCode: string; className: string; startsAt: string; endsAt: string; status: string; roomCode: string; students: number }
-type StudentApi = { enrollmentId: number; studentCode: string; studentName: string; status: 'co_mat' | 'di_muon' | 'vang' | null; attendanceRate: number | null }
+type StudentApi = { enrollmentId: number; studentCode: string; studentName: string; status: 'co_mat' | 'di_muon' | 'vang' | null; attendanceRate: number | null; expectedAttendance: number; recordedAttendance: number }
 
 const DAY = 86_400_000
 const sameDay = (left: Date, right: Date) => left.toDateString() === right.toDateString()
@@ -56,10 +56,11 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
   const fullDateFormat = useMemo(() => new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }), [])
   const days = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index))
   useEffect(() => {
+    let active = true
     const from = dateKey(weekStart)
     const to = dateKey(addDays(weekStart, 6))
     api<SessionApi[]>(`/teacher/sessions?from=${from}&to=${to}`)
-      .then((rows) => setSessions(rows.map((item) => ({
+      .then((rows) => { if (active) setSessions(rows.map((item) => ({
         id: item.id,
         startsAt: item.startsAt,
         date: String(item.startsAt).slice(0, 10),
@@ -69,8 +70,9 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
         room: item.roomCode,
         students: Number(item.students),
         status: item.status === 'da_hoc' ? 'Đã hoàn tất' : item.status === 'da_huy' ? 'Đã hủy' : 'Sắp diễn ra',
-      }))))
-      .catch((error) => messageApi.error(errorMessage(error)))
+      }))) })
+      .catch((error) => { if (active) messageApi.error(errorMessage(error)) })
+    return () => { active = false }
   }, [messageApi, weekStart])
 
   useEffect(() => {
@@ -148,7 +150,7 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
           <Typography.Title level={5}>Danh sách học viên</Typography.Title>
           {studentsLoading ? <Skeleton active paragraph={{ rows: 3 }} /> : students.length ? <div className="teacher-student-preview">{students.map((student) => {
             const attendance = student.status === 'co_mat' ? ['green', 'Có mặt'] : student.status === 'di_muon' ? ['gold', 'Đi muộn'] : student.status === 'vang' ? ['red', 'Vắng'] : ['default', 'Chưa điểm danh']
-            return <Flex key={student.enrollmentId} align="center" gap={10}><Avatar>{student.studentName.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div style={{ flex: 1 }}><Typography.Text strong>{student.studentName}</Typography.Text><br /><Typography.Text type="secondary">{student.studentCode} · Chuyên cần {Number(student.attendanceRate ?? 0)}%</Typography.Text></div><Tag color={attendance[0]}>{attendance[1]}</Tag></Flex>
+            return <Flex key={student.enrollmentId} align="center" gap={10}><Avatar>{student.studentName.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div style={{ flex: 1 }}><Typography.Text strong>{student.studentName}</Typography.Text><br /><Typography.Text type="secondary">{student.studentCode} · Chuyên cần {student.expectedAttendance > 0 && student.attendanceRate !== null ? `${Number(student.attendanceRate).toFixed(1)}%` : '—'} · {student.recordedAttendance}/{student.expectedAttendance} buổi đã ghi nhận</Typography.Text></div><Tag color={attendance[0]}>{attendance[1]}</Tag></Flex>
           })}</div> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Lớp chưa có học viên" />}
           <Button type="primary" block className="teacher-open-attendance" disabled={selected.status === 'Đã hủy' || new Date(selected.startsAt.replace(' ', 'T')).getTime() > Date.now()} onClick={() => { sessionStorage.setItem('teacher-attendance-session', String(selected.id)); onNavigate('teacher-attendance') }}>{selected.status === 'Đã hủy' ? 'Buổi học đã hủy' : new Date(selected.startsAt.replace(' ', 'T')).getTime() > Date.now() ? 'Chưa đến giờ điểm danh' : 'Mở điểm danh buổi này'}</Button>
         </>}

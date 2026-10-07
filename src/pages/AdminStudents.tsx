@@ -7,13 +7,13 @@ import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import { api, apiBlob, errorMessage, json } from '../api'
 
 type StudentStatus = 'Chưa ghi danh' | 'Chờ xếp lớp' | 'Đang học' | 'Bảo lưu' | 'Hoàn thành'
-type StudentRecord = { id: number; enrollmentId: number | null; name: string; code: string; email: string; phone: string; birthDate: string; course: string; courseId: number | null; className: string; status: StudentStatus; attendance: string; debt: string; joined: string; linked: boolean }
+type StudentRecord = { id: number; enrollmentId: number | null; name: string; code: string; email: string; phone: string; birthDate: string; course: string; courseId: number | null; classId: number | null; className: string; status: StudentStatus; attendance: string; debt: string; joined: string; linked: boolean; canChangeClass: boolean }
 type StudentForm = Pick<StudentRecord, 'name' | 'phone' | 'birthDate' | 'email' | 'course'>
 type ImportRow = { rowNumber: number; fullName: string; email: string; phone: string; birthDate: string | null; errors: string[] }
 type CourseOption = { id: number; name: string; status: 'dang_mo' | 'tam_an' }
-type ClassOption = { id: number; name: string; courseId: number; enrolled: number; capacity: number; status: string }
+type ClassOption = { id: number; name: string; courseId: number; enrolled: number; capacity: number; status: string; hasStarted: number }
 type UserApi = { id: number; code: string; fullName: string; email: string; phone: string | null; birthDate: string | null; createdAt: string }
-type EnrollmentApi = { id: number; studentId: number; courseId: number; courseName: string; className: string | null; enrolledAt: string; status: string; attendance: number }
+type EnrollmentApi = { id: number; studentId: number; courseId: number; courseName: string; classId: number | null; className: string | null; enrolledAt: string; status: string; attendance: number; canChangeClass: number }
 type InvoiceApi = { enrollmentId: number; amount: number; status: string }
 type Props = { onLogout: () => void; onNavigate: (page: AdminPage) => void; onNavigateHome: () => void }
 
@@ -67,9 +67,9 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
             id: user.id, enrollmentId: enrollment?.id ?? null, name: user.fullName, code: user.code,
             email: user.email, phone: user.phone ?? '', birthDate: user.birthDate ?? '',
             course: enrollment?.courseName ?? 'Chưa ghi danh', courseId: enrollment?.courseId ?? null,
-            className: enrollment?.className ?? 'Chưa xếp lớp', status: enrollment ? statusMap[enrollment.status] : 'Chưa ghi danh',
-            attendance: enrollment ? `${Number(enrollment.attendance)}%` : '—', debt: !invoice ? 'Chưa có hóa đơn' : invoice.status === 'da_thanh_toan' ? 'Đã hoàn tất' : `${new Intl.NumberFormat('vi-VN').format(invoice.amount)}đ`,
-            joined: new Intl.DateTimeFormat('vi-VN').format(new Date(enrollment?.enrolledAt ?? user.createdAt)), linked: Boolean(enrollment),
+            classId: enrollment?.classId ?? null, className: enrollment?.className ?? 'Chưa xếp lớp', status: enrollment ? statusMap[enrollment.status] : 'Chưa ghi danh',
+            attendance: enrollment ? `${Number(enrollment.attendance).toFixed(1)}%` : '—', debt: !invoice ? 'Chưa có hóa đơn' : invoice.status === 'da_thanh_toan' ? 'Đã hoàn tất' : `${new Intl.NumberFormat('vi-VN').format(invoice.amount)}đ`,
+            joined: new Intl.DateTimeFormat('vi-VN').format(new Date(enrollment?.enrolledAt ?? user.createdAt)), linked: Boolean(enrollment), canChangeClass: Boolean(Number(enrollment?.canChangeClass)),
           }
         })
       }))
@@ -102,10 +102,13 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
   const remove = (student: StudentRecord) => {
     modalApi.confirm({ title: 'Xóa hồ sơ học viên?', content: `${student.name} · ${student.code}`, okText: 'Xóa', okButtonProps: { danger: true }, onOk: async () => { try { await api(`/users/${student.id}`, { method: 'DELETE' }); setSelected(null); await load(); messageApi.success('Đã xóa hồ sơ.') } catch (error) { messageApi.error(errorMessage(error)) } } })
   }
+  const availableClasses = (student: StudentRecord) => classes.filter((item) => item.courseId === student.courseId && ['sap_khai_giang', 'dang_hoc'].includes(item.status)
+    && (!Number(item.hasStarted) || student.status === 'Bảo lưu' && item.status === 'dang_hoc' && item.id === student.classId)
+    && (item.enrolled < item.capacity || item.id === student.classId && student.status === 'Đang học'))
   const openAssign = (student: StudentRecord) => {
-    const options = classes.filter((item) => item.courseId === student.courseId && ['sap_khai_giang', 'dang_hoc'].includes(item.status) && (item.enrolled < item.capacity || item.name === student.className))
+    const options = availableClasses(student)
     setAssigning(student)
-    setAssignClassId(options.find((item) => item.name === student.className)?.id ?? options[0]?.id)
+    setAssignClassId(options.find((item) => item.id === student.classId)?.id ?? options[0]?.id)
     setSelected(null)
   }
   const assignClass = async () => {
@@ -116,7 +119,7 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
     } catch (error) { messageApi.error(errorMessage(error)) }
   }
   const openEnrollment = (student: StudentRecord) => {
-    const usedCourseIds = new Set(students.filter((item) => item.id === student.id && item.enrollmentId).map((item) => item.courseId))
+    const usedCourseIds = new Set(students.filter((item) => item.id === student.id && item.enrollmentId && item.status !== 'Hoàn thành').map((item) => item.courseId))
     setEnrolling(student)
     setEnrollmentCourseId(courses.find((item) => !usedCourseIds.has(item.id))?.id)
     setEnrollmentClassId(undefined)
@@ -136,7 +139,7 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
     const labels = { bao_luu: 'Bảo lưu ghi danh', da_huy: 'Hủy ghi danh' }
     modalApi.confirm({
       title: `${labels[next]}?`,
-      content: next === 'da_huy' ? 'Hóa đơn chưa thanh toán sẽ được hủy cùng ghi danh. Ghi danh đã thanh toán chỉ có thể chuyển lớp.' : `${student.name} · ${student.course}`,
+      content: next === 'da_huy' ? 'Chỉ hủy trước khi học. Hóa đơn chưa thanh toán sẽ bị hủy cùng ghi danh; không hủy ghi danh đã thanh toán vì hệ thống chưa hỗ trợ hoàn tiền.' : `${student.name} · ${student.course}. Bảo lưu trước khi học sẽ giải phóng chỗ ở lớp cũ, giữ nguyên học phí. Khi tiếp tục cần chọn lớp chưa bắt đầu.`,
       okText: labels[next],
       okButtonProps: { danger: next === 'da_huy' },
       onOk: async () => { try { await api(`/enrollments/${student.enrollmentId}`, json('PATCH', { status: next })); setSelected(null); await load(); messageApi.success(`Đã ${next === 'bao_luu' ? 'bảo lưu ghi danh' : 'hủy ghi danh'}.`) } catch (error) { messageApi.error(errorMessage(error)) } },
@@ -188,7 +191,9 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
       <Table rowKey={(item) => `${item.id}-${item.enrollmentId ?? 'none'}`} columns={columns} dataSource={data} scroll={{ x: 950 }} pagination={{ pageSize: 6, showTotal: (total) => `${total} lượt ghi danh` }} locale={{ emptyText: 'Không tìm thấy hồ sơ phù hợp' }} />
     </Card>
     <Drawer size={440} title="Hồ sơ học viên" open={Boolean(selected)} onClose={() => setSelected(null)}>
-      {selected && <><Flex align="center" gap={14}><Avatar size={54} shape="square">{selected.name.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div><Typography.Title className="admin-drawer-title" level={3}>{selected.name}</Typography.Title><Typography.Text type="secondary">{selected.code}</Typography.Text></div></Flex><Descriptions bordered column={1} size="small" style={{ marginTop: 24 }} items={[{ key: 'birth', label: 'Ngày sinh', children: displayDate(selected.birthDate) }, { key: 'email', label: 'Email', children: selected.email || '—' }, { key: 'phone', label: 'Điện thoại', children: selected.phone }, { key: 'course', label: 'Khóa học', children: selected.course }, { key: 'class', label: 'Lớp hiện tại', children: selected.className }, { key: 'joined', label: 'Ngày ghi danh', children: selected.joined }, { key: 'attendance', label: 'Chuyên cần', children: selected.attendance }, { key: 'debt', label: 'Học phí', children: selected.debt }]} /><Card size="small" className="admin-drawer-status"><Flex justify="space-between"><Typography.Text type="secondary">Trạng thái ghi danh</Typography.Text><Tag color={statusColor[selected.status]}>{selected.status}</Tag></Flex></Card><Space orientation="vertical" style={{ width: '100%', marginTop: 18 }}><Button block icon={<Plus />} onClick={() => openEnrollment(selected)}>Ghi danh thêm khóa học</Button>{selected.enrollmentId && ['Chờ xếp lớp', 'Đang học'].includes(selected.status) && <Button block type="primary" icon={<UsersThree />} onClick={() => openAssign(selected)}>{selected.className === 'Chưa xếp lớp' ? 'Xếp lớp' : 'Chuyển lớp'}</Button>}{selected.status === 'Đang học' && <Button block icon={<PauseCircle />} onClick={() => changeEnrollmentStatus(selected, 'bao_luu')}>Bảo lưu ghi danh</Button>}{selected.status === 'Bảo lưu' && <Button block type="primary" icon={<PlayCircle />} onClick={() => openAssign(selected)}>Tiếp tục hoặc chuyển lớp</Button>}{selected.enrollmentId && ['Chờ xếp lớp', 'Đang học', 'Bảo lưu'].includes(selected.status) && <Button block danger icon={<XCircle />} onClick={() => changeEnrollmentStatus(selected, 'da_huy')}>Hủy ghi danh</Button>}<Button block icon={<PencilSimple />} onClick={() => openEdit(selected)}>Sửa hồ sơ</Button><Button block danger icon={<Trash />} onClick={() => remove(selected)}>Xóa hồ sơ</Button></Space></>}
+      {selected && <><Flex align="center" gap={14}><Avatar size={54} shape="square">{selected.name.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div><Typography.Title className="admin-drawer-title" level={3}>{selected.name}</Typography.Title><Typography.Text type="secondary">{selected.code}</Typography.Text></div></Flex><Descriptions bordered column={1} size="small" style={{ marginTop: 24 }} items={[{ key: 'birth', label: 'Ngày sinh', children: displayDate(selected.birthDate) }, { key: 'email', label: 'Email', children: selected.email || '—' }, { key: 'phone', label: 'Điện thoại', children: selected.phone }, { key: 'course', label: 'Khóa học', children: selected.course }, { key: 'class', label: 'Lớp hiện tại', children: selected.className }, { key: 'joined', label: 'Ngày ghi danh', children: selected.joined }, { key: 'attendance', label: 'Chuyên cần', children: selected.attendance }, { key: 'debt', label: 'Học phí', children: selected.debt }]} /><Card size="small" className="admin-drawer-status"><Flex justify="space-between"><Typography.Text type="secondary">Trạng thái ghi danh</Typography.Text><Tag color={statusColor[selected.status]}>{selected.status}</Tag></Flex></Card>
+      {selected.enrollmentId && !selected.canChangeClass && <Alert style={{ marginTop: 16 }} type="info" showIcon title="Lịch sử học tập đã khóa" description="Không chuyển lớp, bảo lưu hay hủy sau khi đã học. Ghi danh bảo lưu cũ chỉ được tiếp tục tại đúng lớp đang học, giữ nguyên lịch sử; lớp đã kết thúc cần trung tâm kiểm tra riêng." />}
+      <Space orientation="vertical" style={{ width: '100%', marginTop: 18 }}><Button block icon={<Plus />} onClick={() => openEnrollment(selected)}>Ghi danh thêm khóa học</Button>{selected.enrollmentId && selected.canChangeClass && ['Chờ xếp lớp', 'Đang học'].includes(selected.status) && <Button block type="primary" icon={<UsersThree />} onClick={() => openAssign(selected)}>{selected.className === 'Chưa xếp lớp' ? 'Xếp lớp' : 'Chuyển lớp'}</Button>}{selected.canChangeClass && ['Chờ xếp lớp', 'Đang học'].includes(selected.status) && <Button block icon={<PauseCircle />} onClick={() => changeEnrollmentStatus(selected, 'bao_luu')}>Bảo lưu ghi danh</Button>}{selected.status === 'Bảo lưu' && <Button block type="primary" icon={<PlayCircle />} onClick={() => openAssign(selected)}>Tiếp tục hoặc chuyển lớp</Button>}{selected.enrollmentId && selected.canChangeClass && ['Chờ xếp lớp', 'Đang học', 'Bảo lưu'].includes(selected.status) && <Button block danger icon={<XCircle />} onClick={() => changeEnrollmentStatus(selected, 'da_huy')}>Hủy ghi danh</Button>}<Button block icon={<PencilSimple />} onClick={() => openEdit(selected)}>Sửa hồ sơ</Button><Button block danger icon={<Trash />} onClick={() => remove(selected)}>Xóa hồ sơ</Button></Space></>}
     </Drawer>
     <Modal title={editing === 'new' ? 'Ghi danh học viên' : 'Sửa hồ sơ học viên'} open={editing !== null} onCancel={() => setEditing(null)} onOk={() => form.submit()} okText={editing === 'new' ? 'Lưu hồ sơ' : 'Cập nhật'} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={save} style={{ marginTop: 20 }}>
@@ -200,14 +205,14 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
       </Form>
     </Modal>
     <Modal title={assigning?.status === 'Bảo lưu' ? `Tiếp tục học cho ${assigning.name}` : assigning ? `Xếp lớp cho ${assigning.name}` : 'Xếp lớp'} open={Boolean(assigning)} onCancel={() => setAssigning(null)} onOk={assignClass} okText="Xác nhận" okButtonProps={{ disabled: !assignClassId }} destroyOnHidden>
-      <Typography.Paragraph type="secondary" style={{ marginTop: 16 }}>Chỉ hiển thị lớp còn chỗ thuộc khóa {assigning?.course}.</Typography.Paragraph>
-      <Select style={{ width: '100%' }} value={assignClassId} onChange={setAssignClassId} placeholder="Chọn lớp học" options={classes.filter((item) => item.courseId === assigning?.courseId && ['sap_khai_giang', 'dang_hoc'].includes(item.status) && (item.enrolled < item.capacity || item.name === assigning?.className)).map((item) => ({ value: item.id, label: `${item.name} · ${item.enrolled}/${item.capacity} học viên` }))} />
+      <Typography.Paragraph type="secondary" style={{ marginTop: 16 }}>Chỉ nhận lớp chưa bắt đầu, còn chỗ thuộc khóa {assigning?.course}. Riêng bảo lưu cũ được tiếp tục tại đúng lớp cũ còn đang học, không đổi lịch sử.</Typography.Paragraph>
+      <Select style={{ width: '100%' }} value={assignClassId} onChange={setAssignClassId} placeholder="Chọn lớp học" options={(assigning ? availableClasses(assigning) : []).map((item) => ({ value: item.id, label: `${item.name} · ${item.enrolled}/${item.capacity} học viên${Number(item.hasStarted) ? ' · Tiếp tục lớp cũ' : ''}` }))} />
     </Modal>
     <Modal title={enrolling ? `Ghi danh thêm cho ${enrolling.name}` : 'Ghi danh khóa học'} open={Boolean(enrolling)} onCancel={() => setEnrolling(null)} onOk={() => void addEnrollment()} okText="Ghi danh và tạo hóa đơn" confirmLoading={enrollmentLoading} okButtonProps={{ disabled: !enrollmentCourseId }} destroyOnHidden>
       <Alert style={{ margin: '18px 0' }} type="info" showIcon title="Mỗi khóa học là một ghi danh riêng" description="Hệ thống sẽ tạo hóa đơn học phí tương ứng và không cho phép ghi danh trùng khóa đang còn hiệu lực." />
       <Form layout="vertical">
-        <Form.Item label="Khóa học" required><Select value={enrollmentCourseId} onChange={(value) => { setEnrollmentCourseId(value); setEnrollmentClassId(undefined) }} placeholder="Chọn khóa học" options={courses.filter((course) => !students.some((item) => item.id === enrolling?.id && item.enrollmentId && item.courseId === course.id)).map((course) => ({ value: course.id, label: course.name }))} /></Form.Item>
-        <Form.Item label="Xếp lớp ngay (không bắt buộc)"><Select allowClear value={enrollmentClassId} onChange={setEnrollmentClassId} disabled={!enrollmentCourseId} placeholder="Để trống nếu xếp lớp sau" options={classes.filter((item) => item.courseId === enrollmentCourseId && ['sap_khai_giang', 'dang_hoc'].includes(item.status) && item.enrolled < item.capacity).map((item) => ({ value: item.id, label: `${item.name} · ${item.enrolled}/${item.capacity} học viên` }))} /></Form.Item>
+        <Form.Item label="Khóa học" required><Select value={enrollmentCourseId} onChange={(value) => { setEnrollmentCourseId(value); setEnrollmentClassId(undefined) }} placeholder="Chọn khóa học" options={courses.filter((course) => !students.some((item) => item.id === enrolling?.id && item.enrollmentId && item.status !== 'Hoàn thành' && item.courseId === course.id)).map((course) => ({ value: course.id, label: course.name }))} /></Form.Item>
+        <Form.Item label="Xếp lớp ngay (không bắt buộc)"><Select allowClear value={enrollmentClassId} onChange={setEnrollmentClassId} disabled={!enrollmentCourseId} placeholder="Để trống nếu xếp lớp sau" options={classes.filter((item) => item.courseId === enrollmentCourseId && ['sap_khai_giang', 'dang_hoc'].includes(item.status) && !Number(item.hasStarted) && item.enrolled < item.capacity).map((item) => ({ value: item.id, label: `${item.name} · ${item.enrolled}/${item.capacity} học viên` }))} /></Form.Item>
       </Form>
     </Modal>
     <Modal title="Import học viên từ Excel" open={importing} onCancel={() => { setImporting(false); setPreview([]) }} onOk={importValid} okText={`Lưu ${validImportCount} dòng hợp lệ`} okButtonProps={{ disabled: validImportCount === 0 }} width={850} destroyOnHidden>

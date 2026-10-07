@@ -38,12 +38,13 @@ function StudentInvoices({ onLogout, onNavigate, onNavigateHome }: Props) {
   return <StudentLayout activePage="student-invoices" mainId="student-invoices" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
     {contextHolder}
     <AdminPageHeader kicker="Tài chính học tập" title="Học phí của tôi" description="Tra cứu công nợ và các khoản đã được trung tâm xác nhận thanh toán." />
+    <Alert className="student-account-alert" type="info" showIcon title="Thanh toán trọn khóa" description="Nộp toàn bộ học phí bằng tiền mặt hoặc chuyển khoản ngoài hệ thống; trung tâm xác nhận sau khi nhận đủ. Chưa hỗ trợ trả góp hoặc hoàn tiền trong ứng dụng." />
     <AdminSummary items={[
       { label: 'Công nợ hiện tại', value: money(totalDue), detail: `${due.length} hóa đơn chưa thanh toán`, icon: <Receipt weight="duotone" />, tone: due.length ? 'danger' : 'success' },
       { label: 'Hạn thanh toán', value: due[0] ? date(due[0].dueAt) : '—', detail: due[0]?.code ?? 'Không có hóa đơn đến hạn', icon: <ClockCountdown weight="duotone" /> },
       { label: 'Đã thanh toán', value: paid.length, detail: 'Hóa đơn đã xác nhận', icon: <CheckCircle weight="duotone" />, tone: 'success' },
     ]} />
-    {due.length > 0 && <Alert className="student-account-alert" type={overdue.length ? 'error' : 'warning'} showIcon icon={<WarningCircle />} title={overdue.length ? `Bạn có ${overdue.length} hóa đơn quá hạn` : 'Bạn còn học phí chưa thanh toán'} description="Trung tâm xác nhận sau khi nhận thanh toán; công nợ chưa hoàn tất sẽ ảnh hưởng điều kiện dự thi." />}
+    {due.length > 0 && <Alert className="student-account-alert" type={overdue.length ? 'error' : 'warning'} showIcon icon={<WarningCircle />} title={overdue.length ? `Bạn có ${overdue.length} hóa đơn quá hạn` : 'Bạn còn học phí chưa thanh toán'} description="Ghi danh chưa được xác nhận đủ học phí sẽ chưa đủ điều kiện dự thi và xét chứng chỉ. Công nợ của khóa khác không làm khóa đã trả đủ bị khóa." />}
     <Card className="student-account-card">
       <Tabs defaultActiveKey="due" items={[
         { key: 'due', label: `Chưa thanh toán (${due.length})`, children: <Table rowKey="code" columns={columns} dataSource={due} pagination={false} scroll={{ x: 820 }} /> },

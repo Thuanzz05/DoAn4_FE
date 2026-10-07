@@ -7,7 +7,7 @@ import {
   ClockCounterClockwise,
   Receipt,
 } from '@phosphor-icons/react'
-import { Alert, Card, Col, Empty, Flex, Progress, Row, Select, Table, Tabs, Tag, Typography, message } from 'antd'
+import { Alert, Card, Col, Empty, Flex, Progress, Row, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import StudentLayout, { type StudentPage } from './StudentLayout'
@@ -20,52 +20,68 @@ type StudentResultsProps = {
   onNavigateHome: () => void
 }
 
-type Score = { key: string; skill: string; score: number; note: string }
-type Attendance = { key: string; date: string; session: string; status: 'Có mặt' | 'Đi muộn' | 'Vắng'; note: string }
+type Score = { key: string; skill: string; score: number | null; note: string }
+type Attendance = { key: string; date: string; session: string; status: 'Có mặt' | 'Đi muộn' | 'Vắng' | 'Chưa điểm danh'; note: string }
 type ExamResult = { examId: number; enrollmentId: number; examName: string; examDate: string | null; classId: number; classCode: string; className: string; listening: number | null; speaking: number | null; reading: number | null; writing: number | null; average: number | null }
-type ResultApi = { exams: ExamResult[]; attendance: Array<{ sessionId: number; enrollmentId: number; classId: number; className: string; startsAt: string; status: 'co_mat' | 'di_muon' | 'vang'; note: string | null }> }
-type Eligibility = { enrollmentId: number; classId: number; courseName: string; attendance: number; average: number | null; requiredExams: number; completedExams: number; paid: boolean; eligible: boolean; ineligibleReasons: string[] }
+type ResultApi = { exams: ExamResult[]; attendance: Array<{ sessionId: number; enrollmentId: number; classId: number; className: string; startsAt: string; status: 'co_mat' | 'di_muon' | 'vang' | null; note: string | null }> }
+type Eligibility = { enrollmentId: number; enrollmentStatus: string; classId: number | null; classCode: string | null; className: string | null; courseName: string; attendance: number; expectedAttendance: number; recordedAttendance: number; average: number | null; requiredExams: number; completedExams: number; paid: boolean; eligible: boolean; certificateStatus: 'da_duyet' | 'da_cap' | null; ineligibleReasons: string[] }
+const scoreLabel = (score: number | null) => score === null ? '—' : Number(score).toFixed(1)
+const attendanceColor = { 'Có mặt': 'green', 'Đi muộn': 'orange', Vắng: 'red', 'Chưa điểm danh': 'default' }
+if (import.meta.env.DEV && (scoreLabel(null) !== '—' || scoreLabel(0) !== '0.0')) throw new Error('Missing score must differ from zero')
 
 const scoreColumns: ColumnsType<Score> = [
   { title: 'Kỹ năng', dataIndex: 'skill', render: (skill) => <Typography.Text strong>{skill}</Typography.Text> },
-  { title: 'Điểm', dataIndex: 'score', width: 140, render: (score) => <strong className="student-result-score">{score.toFixed(1)}</strong> },
-  { title: 'Nhận xét', dataIndex: 'note' },
+  { title: 'Điểm', dataIndex: 'score', width: 140, render: (score: number | null) => <strong className="student-result-score">{scoreLabel(score)}</strong> },
+  { title: 'Ghi chú', dataIndex: 'note' },
 ]
 
 const attendanceColumns: ColumnsType<Attendance> = [
   { title: 'Ngày học', dataIndex: 'date', width: 150 },
-  { title: 'Buổi', dataIndex: 'session', width: 110 },
-  { title: 'Trạng thái', dataIndex: 'status', width: 140, render: (status: Attendance['status']) => <Tag color={status === 'Có mặt' ? 'green' : status === 'Đi muộn' ? 'orange' : 'red'}>{status}</Tag> },
+  { title: 'Lớp', dataIndex: 'session', width: 160 },
+  { title: 'Trạng thái', dataIndex: 'status', width: 150, render: (status: Attendance['status']) => <Tag color={attendanceColor[status]}>{status}</Tag> },
   { title: 'Ghi chú', dataIndex: 'note' },
 ]
 
 function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResultsProps) {
   const [result, setResult] = useState<ResultApi>({ exams: [], attendance: [] })
   const [eligibility, setEligibility] = useState<Eligibility[]>([])
+  const [enrollmentId, setEnrollmentId] = useState<number>()
   const [examId, setExamId] = useState<number>()
+  const [loading, setLoading] = useState(true)
   const [messageApi, contextHolder] = message.useMessage()
-  useEffect(() => { Promise.all([api<ResultApi>('/student/results'), api<Eligibility[]>('/student/certificate-eligibility')]).then(([data, conditions]) => { setResult(data); setEligibility(conditions); setExamId((current) => current ?? data.exams[0]?.examId) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
-  const exam = result.exams.find((item) => item.examId === examId) ?? result.exams[0]
+  useEffect(() => {
+    let active = true
+    Promise.all([api<ResultApi>('/student/results'), api<Eligibility[]>('/student/certificate-eligibility')]).then(([data, conditions]) => {
+      if (!active) return
+      const firstEnrollment = conditions[0]?.enrollmentId ?? data.exams[0]?.enrollmentId
+      setResult(data); setEligibility(conditions); setEnrollmentId(firstEnrollment); setExamId(data.exams.find((item) => item.enrollmentId === firstEnrollment)?.examId)
+    }).catch((error) => { if (active) messageApi.error(errorMessage(error)) }).finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [messageApi])
+  const condition = eligibility.find((item) => item.enrollmentId === enrollmentId)
+  const exams = result.exams.filter((item) => item.enrollmentId === enrollmentId && item.classId === condition?.classId)
+  const exam = exams.find((item) => item.examId === examId) ?? exams[0]
   const scores: Score[] = exam ? [
-    { key: 'listening', skill: 'Nghe', score: Number(exam.listening ?? 0), note: exam.listening === null ? 'Chưa có điểm' : exam.examName },
-    { key: 'speaking', skill: 'Nói', score: Number(exam.speaking ?? 0), note: exam.speaking === null ? 'Chưa có điểm' : exam.examName },
-    { key: 'reading', skill: 'Đọc', score: Number(exam.reading ?? 0), note: exam.reading === null ? 'Chưa có điểm' : exam.examName },
-    { key: 'writing', skill: 'Viết', score: Number(exam.writing ?? 0), note: exam.writing === null ? 'Chưa có điểm' : exam.examName },
+    { key: 'listening', skill: 'Nghe', score: exam.listening, note: exam.listening === null ? 'Chưa có điểm' : exam.examName },
+    { key: 'speaking', skill: 'Nói', score: exam.speaking, note: exam.speaking === null ? 'Chưa có điểm' : exam.examName },
+    { key: 'reading', skill: 'Đọc', score: exam.reading, note: exam.reading === null ? 'Chưa có điểm' : exam.examName },
+    { key: 'writing', skill: 'Viết', score: exam.writing, note: exam.writing === null ? 'Chưa có điểm' : exam.examName },
   ] : []
-  const selectedEnrollmentId = exam?.enrollmentId ?? eligibility[0]?.enrollmentId
-  const attendanceRows: Attendance[] = result.attendance.filter((item) => selectedEnrollmentId === undefined || item.enrollmentId === selectedEnrollmentId).map((item) => ({ key: `${item.enrollmentId}-${item.sessionId}`, date: new Date(item.startsAt).toLocaleDateString('vi-VN'), session: item.className, status: item.status === 'co_mat' ? 'Có mặt' : item.status === 'di_muon' ? 'Đi muộn' : 'Vắng', note: item.note ?? '—' }))
-  const present = attendanceRows.filter((item) => item.status === 'Có mặt').length
-  const late = attendanceRows.filter((item) => item.status === 'Đi muộn').length
-  const absent = attendanceRows.filter((item) => item.status === 'Vắng').length
-  const rate = attendanceRows.length ? Math.round((present + late) * 100 / attendanceRows.length) : 0
-  const average = Number(exam?.average ?? 0)
-  const condition = eligibility.find((item) => item.enrollmentId === selectedEnrollmentId)
+  const attendanceRows: Attendance[] = result.attendance.filter((item) => item.enrollmentId === enrollmentId).map((item) => ({ key: `${item.enrollmentId}-${item.sessionId}`, date: new Date(item.startsAt.replace(' ', 'T')).toLocaleDateString('vi-VN'), session: item.className, status: item.status === 'co_mat' ? 'Có mặt' : item.status === 'di_muon' ? 'Đi muộn' : item.status === 'vang' ? 'Vắng' : 'Chưa điểm danh', note: item.note ?? '—' }))
+  const currentAttendance = result.attendance.filter((item) => item.enrollmentId === enrollmentId && item.classId === condition?.classId)
+  const present = currentAttendance.filter((item) => item.status === 'co_mat').length
+  const late = currentAttendance.filter((item) => item.status === 'di_muon').length
+  const absent = currentAttendance.filter((item) => item.status === 'vang').length
+  const expectedAttendance = Number(condition?.expectedAttendance ?? 0)
+  const recordedAttendance = Number(condition?.recordedAttendance ?? 0)
+  const rate = Number(condition?.attendance ?? 0)
+  const average = exam?.average === null || !exam ? null : Number(exam.average)
   const gradeTab = <div className="student-result-panel">
-    <Alert type={average >= 5 ? 'success' : 'info'} showIcon title={exam ? `${exam.examName} · ${exam.className}` : 'Chưa có kết quả thi'} description={exam ? `Điểm trung bình hiện tại là ${average.toFixed(1)}/10.` : 'Kết quả sẽ hiển thị sau khi giáo viên nhập điểm.'} />
+    <Alert type={average !== null && average >= 5 ? 'success' : 'info'} showIcon title={exam ? `${exam.examName} · ${exam.className}` : 'Lớp chưa có kỳ thi'} description={average === null ? 'Điểm trung bình chỉ được tính khi đủ điểm cả bốn kỹ năng. Dấu — là chưa có điểm, không phải điểm 0.' : `Điểm trung bình kỳ thi là ${average.toFixed(1)}/10.`} />
     <Row gutter={[14, 14]} className="student-skill-cards">
-      {scores.map((item) => <Col xs={12} lg={6} key={item.key}><Card size="small"><Flex justify="space-between" align="center"><span>{item.skill}</span><strong>{item.score.toFixed(1)}</strong></Flex><Progress percent={item.score * 10} showInfo={false} strokeColor="#397359" /></Card></Col>)}
+      {scores.map((item) => <Col xs={12} lg={6} key={item.key}><Card size="small"><Flex justify="space-between" align="center"><span>{item.skill}</span><strong>{scoreLabel(item.score)}</strong></Flex>{item.score !== null ? <Progress percent={Number(item.score) * 10} showInfo={false} strokeColor="#397359" /> : <Typography.Text type="secondary">Chưa có điểm</Typography.Text>}</Card></Col>)}
     </Row>
-    <Card className="admin-table-card" title="Chi tiết điểm giữa khóa" extra={<Tag color="green">Đã công bố</Tag>}><Table columns={scoreColumns} dataSource={scores} pagination={false} scroll={{ x: 620 }} /></Card>
+    <Card className="admin-table-card" title="Điểm bốn kỹ năng" extra={<Tag color={average === null ? 'default' : 'green'}>{average === null ? 'Chưa đủ điểm' : 'Đã đủ điểm'}</Tag>}><Table loading={loading} columns={scoreColumns} dataSource={scores} pagination={false} scroll={{ x: 620 }} /></Card>
   </div>
 
   const attendanceTab = <div className="student-result-panel">
@@ -74,39 +90,41 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
       <Col xs={24} md={8}><Card><span className="student-result-label">Đi muộn</span><strong>{late}</strong><small>buổi học</small></Card></Col>
       <Col xs={24} md={8}><Card><span className="student-result-label">Vắng</span><strong>{absent}</strong><small>buổi học</small></Card></Col>
     </Row>
-    <Card className="student-attendance-progress"><Flex align="center" gap={24} wrap><Progress type="circle" percent={rate} strokeColor={rate >= 80 ? '#397359' : '#c43d3d'} size={104} /><div><Typography.Title level={4}>Tỷ lệ chuyên cần {rate >= 80 ? 'đạt yêu cầu' : 'chưa đạt yêu cầu'}</Typography.Title><Typography.Paragraph type="secondary">Trung tâm yêu cầu tối thiểu 80% để đủ điều kiện dự thi cuối khóa.</Typography.Paragraph><Tag color={rate >= 80 ? 'green' : 'red'}><CheckCircle weight="fill" /> {rate >= 80 ? 'Đạt điều kiện' : 'Chưa đạt'}</Tag></div></Flex></Card>
-    <Card className="admin-table-card" title="Lịch sử điểm danh gần đây"><Table columns={attendanceColumns} dataSource={attendanceRows} pagination={false} scroll={{ x: 620 }} /></Card>
+    <Card className="student-attendance-progress"><Flex align="center" gap={24} wrap><Progress type="circle" percent={Number(rate.toFixed(1))} format={() => expectedAttendance ? `${rate.toFixed(1)}%` : '—'} strokeColor={rate >= 80 ? '#397359' : '#c43d3d'} size={104} /><div><Typography.Title level={4}>{expectedAttendance ? 'Chuyên cần theo buổi học đã diễn ra' : 'Chưa có buổi học để tính chuyên cần'}</Typography.Title><Typography.Paragraph type="secondary">Đã có điểm danh {recordedAttendance}/{expectedAttendance} buổi phải ghi nhận. Buổi chưa điểm danh không được coi là có mặt. Mức 80% là điều kiện xét chứng chỉ, không phải điều kiện dự thi.</Typography.Paragraph>{expectedAttendance > recordedAttendance && <Tag color="orange">Còn {expectedAttendance - recordedAttendance} buổi chưa điểm danh</Tag>}</div></Flex></Card>
+    <Card className="admin-table-card" title="Lịch sử điểm danh của ghi danh"><Table loading={loading} columns={attendanceColumns} dataSource={attendanceRows} pagination={false} scroll={{ x: 620 }} /></Card>
   </div>
 
+  const certificateTitle = condition?.certificateStatus === 'da_cap' ? 'Chứng chỉ đã được cấp' : condition?.certificateStatus === 'da_duyet' ? 'Hồ sơ chứng chỉ đã được duyệt' : condition?.eligible ? 'Đủ điều kiện nhận chứng chỉ' : 'Chưa đủ điều kiện nhận chứng chỉ'
   const certificateTab = <div className="student-result-panel">
-    <Alert type={condition?.eligible ? 'success' : 'warning'} showIcon title={condition?.eligible ? 'Đủ điều kiện nhận chứng chỉ' : 'Chưa đủ điều kiện nhận chứng chỉ'} description={condition?.eligible ? 'Hồ sơ đang chờ quản trị viên xét duyệt.' : condition?.ineligibleReasons.join('; ') || 'Chưa có khóa học để xét.'} />
+    <Alert type={condition?.eligible || condition?.certificateStatus ? 'success' : 'warning'} showIcon title={certificateTitle} description={condition?.certificateStatus ? 'Hồ sơ đã được chốt. Xem chi tiết tại mục Chứng chỉ của tôi.' : condition?.eligible ? 'Hồ sơ đủ điều kiện, đang chờ quản trị viên xét duyệt.' : condition?.ineligibleReasons.join('; ') || 'Chưa có lớp học để xét.'} />
     <Card className="student-certificate-card" title={`Điều kiện xét chứng chỉ ${condition?.courseName ?? ''}`}>
       <div className="student-condition-list">
-        <div><CheckCircle weight="fill" /><span><strong>Chuyên cần từ 80%</strong><small>Hiện tại: {condition?.attendance ?? 0}%</small></span><Tag color={Number(condition?.attendance ?? 0) >= 80 ? 'green' : 'red'}>{Number(condition?.attendance ?? 0) >= 80 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
-        <div><CheckCircle weight="fill" /><span><strong>Điểm trung bình từ 5,0</strong><small>Hiện tại: {condition?.average ?? 'Chưa có'}</small></span><Tag color={Number(condition?.average ?? 0) >= 5 ? 'green' : 'red'}>{Number(condition?.average ?? 0) >= 5 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
+        <div><CheckCircle weight="fill" /><span><strong>Hoàn thành lớp học</strong><small>Trạng thái được trung tâm xác nhận khi kết thúc lớp.</small></span><Tag color={condition?.enrollmentStatus === 'hoan_thanh' ? 'green' : 'red'}>{condition?.enrollmentStatus === 'hoan_thanh' ? 'Đạt' : 'Chưa đạt'}</Tag></div>
+        <div><CheckCircle weight="fill" /><span><strong>Chuyên cần từ 80%, đủ dữ liệu điểm danh</strong><small>Hiện tại: {expectedAttendance ? `${rate.toFixed(1)}%` : 'Chưa có'} · {recordedAttendance}/{expectedAttendance} buổi được ghi nhận</small></span><Tag color={expectedAttendance > 0 && recordedAttendance === expectedAttendance && rate >= 80 ? 'green' : 'red'}>{expectedAttendance > 0 && recordedAttendance === expectedAttendance && rate >= 80 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
+        <div><CheckCircle weight="fill" /><span><strong>Điểm trung bình từ 5,0</strong><small>Hiện tại: {condition?.average === null || !condition ? 'Chưa có' : Number(condition.average).toFixed(1)}</small></span><Tag color={condition?.average !== null && Number(condition?.average ?? 0) >= 5 ? 'green' : 'red'}>{condition?.average !== null && Number(condition?.average ?? 0) >= 5 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
         <div><CheckCircle weight="fill" /><span><strong>Hoàn thành tất cả kỳ thi</strong><small>Hiện tại: {condition?.completedExams ?? 0}/{condition?.requiredExams ?? 0} kỳ thi</small></span><Tag color={condition && condition.requiredExams > 0 && condition.completedExams === condition.requiredExams ? 'green' : 'red'}>{condition && condition.requiredExams > 0 && condition.completedExams === condition.requiredExams ? 'Đạt' : 'Chưa đạt'}</Tag></div>
-        <div className={condition?.paid ? '' : 'blocked'}><Receipt weight="fill" /><span><strong>Hoàn tất học phí</strong></span><Tag color={condition?.paid ? 'green' : 'red'}>{condition?.paid ? 'Đạt' : 'Chưa đạt'}</Tag></div>
+        <div className={condition?.paid ? '' : 'blocked'}><Receipt weight="fill" /><span><strong>Hoàn tất học phí của ghi danh này</strong></span><Tag color={condition?.paid ? 'green' : 'red'}>{condition?.paid ? 'Đạt' : 'Chưa đạt'}</Tag></div>
       </div>
     </Card>
   </div>
 
-  const historyTab = <div className="student-result-panel">{result.exams.length ? <Table rowKey="examId" pagination={false} scroll={{ x: 720 }} dataSource={result.exams} columns={[
+  const historyTab = <div className="student-result-panel">{result.exams.length ? <Table rowKey={(item) => `${item.enrollmentId}-${item.examId}`} loading={loading} pagination={false} scroll={{ x: 720 }} dataSource={result.exams} columns={[
     { title: 'Kỳ thi', dataIndex: 'examName', render: (value: string) => <Typography.Text strong>{value}</Typography.Text> },
     { title: 'Lớp học', key: 'class', render: (_: unknown, item: ExamResult) => `${item.classCode} · ${item.className}` },
     { title: 'Ngày thi', dataIndex: 'examDate', render: (value: string | null) => value ? new Date(`${value}T00:00:00`).toLocaleDateString('vi-VN') : '—' },
-    { title: 'Điểm TB', dataIndex: 'average', render: (value: number | null) => value === null ? 'Chưa có' : Number(value).toFixed(1) },
-    { title: 'Kết quả', dataIndex: 'average', render: (value: number | null) => value === null ? <Tag>Chưa công bố</Tag> : Number(value) >= 5 ? <Tag color="green">Đạt</Tag> : <Tag color="red">Chưa đạt</Tag> },
+    { title: 'Điểm TB', dataIndex: 'average', render: scoreLabel },
+    { title: 'Kết quả', dataIndex: 'average', render: (value: number | null) => value === null ? <Tag>Chưa đủ điểm</Tag> : Number(value) >= 5 ? <Tag color="green">Đạt</Tag> : <Tag color="red">Chưa đạt</Tag> },
   ]} /> : <Empty description="Chưa có lịch sử học tập" />}</div>
 
   return (
     <StudentLayout activePage="student-results" mainId="student-results" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
       {contextHolder}
-      <AdminPageHeader kicker="Kết quả học tập" title="Điểm số và chuyên cần" description="Theo dõi kết quả bốn kỹ năng, lịch sử điểm danh và điều kiện nhận chứng chỉ." actions={<Select value={exam?.examId} onChange={setExamId} disabled={!result.exams.length} placeholder="Chọn kỳ thi" style={{ minWidth: 240 }} options={result.exams.map((item) => ({ value: item.examId, label: `${item.examName} · ${item.className}` }))} />} />
+      <AdminPageHeader kicker="Kết quả học tập" title="Điểm số và chuyên cần" description="Theo dõi từng khóa học, kể cả lớp chưa có kỳ thi." actions={<Space wrap><Select aria-label="Chọn khóa và lớp học" value={enrollmentId} loading={loading} onChange={(value) => { setEnrollmentId(value); setExamId(result.exams.find((item) => item.enrollmentId === value)?.examId) }} disabled={!eligibility.length} placeholder="Chọn khóa / lớp" style={{ minWidth: 240, maxWidth: '100%' }} options={eligibility.map((item) => ({ value: item.enrollmentId, label: `${item.courseName} · ${item.classCode ?? 'Chưa xếp lớp'}${item.className ? ` · ${item.className}` : ''}` }))} /><Select aria-label="Chọn kỳ thi" value={exam?.examId} onChange={setExamId} disabled={!exams.length} placeholder="Chưa có kỳ thi" style={{ minWidth: 200, maxWidth: '100%' }} options={exams.map((item) => ({ value: item.examId, label: item.examName }))} /></Space>} />
       <AdminSummary items={[
-        { label: 'Điểm trung bình', value: exam?.average === null || !exam ? '—' : average.toFixed(1), detail: exam?.examName ?? 'Chưa có kết quả', icon: <ChartBar weight="duotone" /> },
-        { label: 'Chuyên cần', value: `${rate}%`, detail: `${present} có mặt · ${late} muộn · ${absent} vắng`, icon: <CalendarCheck weight="duotone" />, tone: 'success' },
-        { label: 'Kỳ thi', value: result.exams.length, detail: 'Kết quả đã công bố', icon: <ClockCounterClockwise weight="duotone" /> },
-        { label: 'Chứng chỉ', value: condition?.eligible ? 'Đủ điều kiện' : 'Chưa đạt', detail: condition?.courseName ?? 'Chưa có khóa học', icon: <Certificate weight="duotone" />, tone: condition?.eligible ? 'success' : 'danger' },
+        { label: 'Điểm trung bình kỳ thi', value: scoreLabel(average), detail: exam?.examName ?? 'Chưa có kỳ thi', icon: <ChartBar weight="duotone" /> },
+        { label: 'Chuyên cần', value: expectedAttendance ? `${rate.toFixed(1)}%` : '—', detail: `${recordedAttendance}/${expectedAttendance} buổi có điểm danh`, icon: <CalendarCheck weight="duotone" />, tone: rate >= 80 ? 'success' : undefined },
+        { label: 'Kỳ thi của lớp', value: exams.length, detail: `${exams.filter((item) => item.average !== null).length} kỳ thi đủ điểm`, icon: <ClockCounterClockwise weight="duotone" /> },
+        { label: 'Chứng chỉ', value: condition?.certificateStatus === 'da_cap' ? 'Đã cấp' : condition?.certificateStatus === 'da_duyet' ? 'Đã duyệt' : condition?.eligible ? 'Đủ điều kiện' : 'Chưa đạt', detail: condition?.courseName ?? 'Chưa có khóa học', icon: <Certificate weight="duotone" />, tone: condition?.eligible || condition?.certificateStatus ? 'success' : 'danger' },
       ]} />
       <Card className="student-results-tabs"><Tabs defaultActiveKey="grades" items={[
         { key: 'grades', label: 'Điểm số', children: gradeTab },
