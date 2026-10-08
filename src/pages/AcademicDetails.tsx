@@ -17,28 +17,31 @@ type Learner = {
 type Academic = {
   exams: Array<{ id: number; name: string; examDate: string | null; deadline: string | null }>
   students: Learner[]
-  missingAttendance: Array<{ sessionId: number; startsAt: string; teacherName: string; roomCode: string; enrollmentId: number; studentCode: string; studentName: string }>
+  missingAttendance: Array<{ sessionId: number; startsAt: string; teacherName: string; roomCode: string; enrollmentId: number; studentCode: string; studentName: string; canMarkAttendance: boolean }>
 }
-export default function AcademicDetails({ classId, teacher = false, section, revision = 0 }: { classId: number; teacher?: boolean; section?: 'attendance' | 'grades'; revision?: number }) {
+export default function AcademicDetails({ classId, teacher = false, section, revision = 0, onOpenSession }: { classId: number; teacher?: boolean; section?: 'attendance' | 'grades'; revision?: number; onOpenSession?: (sessionId: number) => void }) {
   const [data, setData] = useState<Academic>()
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
+  const [exportError, setExportError] = useState('')
+  const [retry, setRetry] = useState(0)
   const [examId, setExamId] = useState<number>()
   const [tab, setTab] = useState(section ?? 'students')
   const base = `${teacher ? '/teacher' : ''}/classes/${classId}/academic`
   useEffect(() => {
     let active = true
-    setLoading(true); setError(''); setData(undefined)
-    api<Academic>(base).then((result) => { if (active) { setData(result); setExamId(result.exams[0]?.id) } })
+    setLoading(true); setError(''); setExportError(''); setData(undefined)
+    api<Academic>(base).then((result) => { if (active) { setData(result); setExamId((current) => result.exams.some((exam) => exam.id === current) ? current : result.exams[0]?.id) } })
       .catch((err) => { if (active) setError(errorMessage(err)) })
       .finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [base, revision])
+  }, [base, revision, retry])
   const exportSection = async () => {
-    setExporting(true)
+    if (exporting || loading || !data || error) return
+    setExporting(true); setExportError('')
     try { await downloadFile(`${base}/export?section=${tab === 'attendance' || tab === 'missing' ? 'attendance' : tab === 'grades' ? 'grades' : 'all'}`, `hoc-vu-lop-${classId}.xlsx`) }
-    catch (err) { setError(errorMessage(err)) } finally { setExporting(false) }
+    catch (err) { setExportError(errorMessage(err)) } finally { setExporting(false) }
   }
   const identity: TableProps<Learner>['columns'] = [
     { title: 'Mã học viên', dataIndex: 'studentCode', width: 135 },
@@ -64,13 +67,14 @@ export default function AcademicDetails({ classId, teacher = false, section, rev
     ...(!section ? [{ key: 'students', label: 'Học viên', children: table([...identity, { title: 'Email', dataIndex: 'email' }, { title: 'Ghi danh', dataIndex: 'enrollmentStatus', render: (value: string) => enrollmentLabels[value] ?? value }, { title: 'Học phí', dataIndex: 'paid', render: (value: boolean) => <Tag color={value ? 'green' : 'orange'}>{value ? 'Đã hoàn tất' : 'Chưa hoàn tất'}</Tag> }]) }] : []),
     ...(!section || section === 'attendance' ? [
       { key: 'attendance', label: 'Chuyên cần toàn khóa', children: table(attendanceColumns) },
-      { key: 'missing', label: `Điểm danh còn thiếu (${data?.missingAttendance.length ?? 0})`, children: <Table loading={loading} rowKey={(row) => `${row.sessionId}-${row.enrollmentId}`} dataSource={data?.missingAttendance ?? []} columns={[{ title: 'Buổi học', dataIndex: 'startsAt', render: (value: string) => new Date(value.replace(' ', 'T')).toLocaleString('vi-VN') }, { title: 'Phòng', dataIndex: 'roomCode' }, { title: 'Giáo viên', dataIndex: 'teacherName' }, { title: 'Mã HV', dataIndex: 'studentCode' }, { title: 'Học viên chưa điểm danh', dataIndex: 'studentName' }]} pagination={{ pageSize: 10 }} scroll={{ x: 900 }} /> },
+      { key: 'missing', label: `Điểm danh còn thiếu (${loading || error ? '—' : data?.missingAttendance.length ?? 0})`, children: <Table loading={loading} rowKey={(row) => `${row.sessionId}-${row.enrollmentId}`} dataSource={data?.missingAttendance ?? []} columns={[{ title: 'Buổi học', dataIndex: 'startsAt', render: (value: string) => new Date(value.replace(' ', 'T')).toLocaleString('vi-VN') }, { title: 'Phòng', dataIndex: 'roomCode' }, { title: 'Giáo viên', dataIndex: 'teacherName' }, { title: 'Mã HV', dataIndex: 'studentCode' }, { title: 'Học viên chưa điểm danh', dataIndex: 'studentName' }, ...(onOpenSession ? [{ title: 'Xử lý', key: 'action', render: (_: unknown, row: Academic['missingAttendance'][number]) => teacher && !row.canMarkAttendance ? <Typography.Text type="secondary">Liên hệ giáo vụ</Typography.Text> : <Button disabled={loading || Boolean(error)} onClick={() => onOpenSession(row.sessionId)}>Bổ sung điểm danh</Button> }] : [])]} pagination={{ pageSize: 10 }} scroll={{ x: 1050 }} /> },
     ] : []),
-    ...(!section || section === 'grades' ? [{ key: 'grades', label: 'Điểm toàn khóa', children: <><Space style={{ marginBottom: 16 }}><Typography.Text>Kỳ thi:</Typography.Text><Select style={{ minWidth: 200 }} value={examId} onChange={setExamId} options={data?.exams.map((exam) => ({ value: exam.id, label: exam.name }))} /></Space>{table(gradeColumns)}</> }] : []),
+    ...(!section || section === 'grades' ? [{ key: 'grades', label: 'Điểm toàn khóa', children: <><Space style={{ marginBottom: 16 }}><Typography.Text>Kỳ thi:</Typography.Text><Select disabled={loading || Boolean(error) || !data?.exams.length} style={{ minWidth: 200 }} value={examId} onChange={setExamId} options={data?.exams.map((exam) => ({ value: exam.id, label: exam.name }))} /></Space>{table(gradeColumns)}</> }] : []),
   ]
-  return <Card size="small" title="Hồ sơ học vụ" style={{ marginTop: 16 }} extra={<Button loading={exporting} disabled={loading || !data} onClick={() => void exportSection()}>Xuất Excel</Button>}>
-    {error && <Alert type="error" showIcon title={error} style={{ marginBottom: 16 }} />}
+  return <Card size="small" title="Hồ sơ học vụ" style={{ marginTop: 16 }} extra={<Space><Button loading={loading} disabled={exporting} onClick={() => setRetry((value) => value + 1)}>Tải lại thống kê</Button><Button loading={exporting} disabled={loading || !data || Boolean(error)} onClick={() => void exportSection()}>Xuất Excel</Button></Space>}>
+    {error && <Alert type="error" showIcon title="Chưa tải được học vụ của lớp" description={error} action={<Button onClick={() => setRetry((value) => value + 1)}>Thử lại</Button>} style={{ marginBottom: 16 }} />}
+    {exportError && <Alert type="error" showIcon title="Chưa xuất được Excel" description={exportError} style={{ marginBottom: 16 }} />}
     <Typography.Paragraph type="secondary">Chuyên cần tính trên tất cả buổi đã đến giờ, không gồm buổi hủy. Điểm trung bình toàn khóa chỉ có khi đủ bốn kỹ năng của tất cả kỳ thi.</Typography.Paragraph>
-    <Tabs activeKey={tab} onChange={setTab} items={tabs} />
+    {!error && <Tabs activeKey={tab} onChange={setTab} items={tabs} />}
   </Card>
 }

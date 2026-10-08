@@ -367,6 +367,7 @@ function App() {
           <a href="#tong-quan">Tổng quan</a>
           <a href="#van-hanh">Vận hành</a>
           <a href="#vai-tro">Vai trò</a>
+          <a href="/verify-certificate" onClick={(event) => { event.preventDefault(); navigate('verify-certificate') }}>Xác thực chứng chỉ</a>
         </nav>
         <button className="header-login" type="button" onClick={openLogin}>Đăng nhập</button>
       </header>
@@ -472,7 +473,7 @@ function App() {
       <footer>
         <a className="wordmark footer-mark" href="#top"><span>Trung tâm</span><small>Hệ thống quản lý ngoại ngữ</small></a>
         <p>Đồ án xây dựng hệ thống quản lý trung tâm ngoại ngữ trên nền tảng web.</p>
-        <button type="button" onClick={openLogin}>Đăng nhập</button>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}><a className="text-action" href="/verify-certificate" onClick={(event) => { event.preventDefault(); navigate('verify-certificate') }}>Xác thực chứng chỉ</a><button type="button" onClick={openLogin}>Đăng nhập</button></div>
       </footer>
 
       <CourseAdvisor />

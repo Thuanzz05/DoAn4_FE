@@ -8,7 +8,7 @@ import {
   MapPin,
   Student,
 } from '@phosphor-icons/react'
-import { Alert, Button, Card, Divider, Drawer, Empty, Flex, Segmented, Skeleton, Space, Tag, Typography } from 'antd'
+import { Alert, Button, Card, Divider, Drawer, Empty, Flex, Segmented, Select, Skeleton, Space, Tag, Typography } from 'antd'
 import { AdminPageHeader } from './AdminPageKit'
 import StudentLayout, { type StudentPage } from './StudentLayout'
 import './StudentSchedule.css'
@@ -43,7 +43,8 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
   const [view, setView] = useState<ViewMode>('week')
   const [anchor, setAnchor] = useState(() => new Date())
   const [sessions, setSessions] = useState<Session[]>([])
-  const [selected, setSelected] = useState<Session | null>(null)
+  const [selectedId, setSelectedId] = useState<number>()
+  const [classCode, setClassCode] = useState('all')
   const [focusedClassCode, setFocusedClassCode] = useState<string>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -56,10 +57,14 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
       setSessions(rows.map((item) => ({ id: item.id, date: String(item.startsAt).slice(0, 10),
         time: `${new Date(item.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`,
         course: item.className, room: item.roomCode, teacher: item.teacherName, classCode: item.classCode, status: item.status })))
+      setClassCode((current) => current === 'all' || rows.some((item) => item.classCode === current) ? current : 'all')
     }).catch((err) => { if (!controller.signal.aborted) setError(errorMessage(err)) })
       .finally(() => { if (!controller.signal.aborted) setLoading(false) })
     return () => controller.abort()
   }, [reload])
+  const selected = sessions.find((item) => item.id === selectedId)
+  const visibleSessions = classCode === 'all' ? sessions : sessions.filter((item) => item.classCode === classCode)
+  const classOptions = Array.from(new Map(sessions.map((item) => [item.classCode, { value: item.classCode, label: `${item.classCode} · ${item.course}` }])).values())
   const shortDate = useMemo(() => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }), [])
   const fullDate = useMemo(() => new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }), [])
   const weekStart = startOfWeek(anchor)
@@ -80,7 +85,7 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
         kicker="Lịch học cá nhân"
         title="Thời khóa biểu của tôi"
         description="Theo dõi thời gian, phòng học và giáo viên phụ trách theo tuần hoặc tháng."
-        actions={<Segmented value={view} onChange={(value) => setView(value as ViewMode)} options={[{ label: 'Theo tuần', value: 'week' }, { label: 'Theo tháng', value: 'month' }]} />}
+        actions={<Space wrap><Select aria-label="Lọc lịch theo lớp" value={classCode} onChange={setClassCode} disabled={loading || Boolean(error)} style={{ minWidth: 220, maxWidth: '100%' }} options={[{ value: 'all', label: 'Tất cả lớp' }, ...classOptions]} /><Segmented value={view} onChange={(value) => setView(value as ViewMode)} options={[{ label: 'Theo tuần', value: 'week' }, { label: 'Theo tháng', value: 'month' }]} /><Button loading={loading} onClick={() => setReload((value) => value + 1)}>Làm mới</Button></Space>}
       />
 
       <Alert className="student-schedule-alert" type="info" showIcon title="Lịch học được đồng bộ từ trung tâm" description="Các thay đổi về thời gian và phòng học sẽ hiển thị tại đây." />
@@ -97,20 +102,20 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
         ) : view === 'week' ? (
           <div className="student-week-scroll"><div className="student-week-grid">
             {weekDays.map((date) => {
-              const daySessions = sessions.filter((session) => session.date === formatKey(date))
-              return <section className={formatKey(date) === formatKey(new Date()) ? 'is-today' : ''} key={formatKey(date)}><header><span>{date.toLocaleDateString('vi-VN', { weekday: 'short' })}</span><strong>{date.getDate()}</strong></header><div className="student-day-sessions">{daySessions.map((session) => <button className="student-schedule-session" type="button" key={session.id} onClick={() => setSelected(session)}><span><Clock />{session.time}</span><strong>{session.course}</strong><small><MapPin />{session.room}</small><Tag color={sessionStatus[session.status].color}>{sessionStatus[session.status].label}</Tag></button>)}{!daySessions.length && <span className="student-no-session">Không có lịch</span>}</div></section>
+              const daySessions = visibleSessions.filter((session) => session.date === formatKey(date))
+              return <section className={formatKey(date) === formatKey(new Date()) ? 'is-today' : ''} key={formatKey(date)}><header><span>{date.toLocaleDateString('vi-VN', { weekday: 'short' })}</span><strong>{date.getDate()}</strong></header><div className="student-day-sessions">{daySessions.map((session) => <button className="student-schedule-session" type="button" key={session.id} onClick={() => setSelectedId(session.id)}><span><Clock />{session.time}</span><strong>{session.course}</strong><small><MapPin />{session.room}</small><Tag color={sessionStatus[session.status].color}>{sessionStatus[session.status].label}</Tag></button>)}{!daySessions.length && <span className="student-no-session">Không có lịch</span>}</div></section>
             })}
           </div></div>
         ) : (
           <div className="student-month-scroll"><div className="student-month-calendar">
             {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => <strong className="student-month-weekday" key={day}>{day}</strong>)}
-            {monthDays.map((date) => { const daySessions = sessions.filter((session) => session.date === formatKey(date)); return <section className={`${date.getMonth() !== anchor.getMonth() ? 'outside' : ''} ${formatKey(date) === formatKey(new Date()) ? 'is-today' : ''}`} key={formatKey(date)}><span>{date.getDate()}</span>{daySessions.map((session) => <button type="button" key={session.id} onClick={() => setSelected(session)}><i />{session.status === 'da_huy' ? 'Đã hủy' : session.time} · {session.course}</button>)}</section> })}
+            {monthDays.map((date) => { const daySessions = visibleSessions.filter((session) => session.date === formatKey(date)); return <section className={`${date.getMonth() !== anchor.getMonth() ? 'outside' : ''} ${formatKey(date) === formatKey(new Date()) ? 'is-today' : ''}`} key={formatKey(date)}><span>{date.getDate()}</span>{daySessions.map((session) => <button type="button" key={session.id} onClick={() => setSelectedId(session.id)}><i />{session.status === 'da_huy' ? 'Đã hủy' : session.time} · {session.course}</button>)}</section> })}
           </div></div>
         )}
       </Card>
       <StudentClasses focusedClassCode={focusedClassCode} onCloseFocus={() => setFocusedClassCode(undefined)} />
 
-      <Drawer title={selected?.course} open={Boolean(selected)} onClose={() => setSelected(null)} size={430}>
+      <Drawer title={selected?.course} open={!loading && !error && Boolean(selected)} onClose={() => setSelectedId(undefined)} size={430}>
         {selected ? <>
           <Tag color={sessionStatus[selected.status].color}>{sessionStatus[selected.status].label}</Tag>
           <Typography.Title className="student-schedule-drawer-title" level={3}>{selected.time}</Typography.Title>
@@ -121,7 +126,7 @@ function StudentSchedule({ onLogout, onNavigate, onNavigateHome }: StudentSchedu
             <span><Student />Lớp {selected.classCode}</span>
           </Space>
           <Divider />
-          <Card size="small" className="student-course-detail"><Typography.Text type="secondary">Lớp học</Typography.Text><strong>{selected.course}</strong><Typography.Text type="secondary">Mã lớp {selected.classCode}</Typography.Text><Button onClick={() => { setFocusedClassCode(selected.classCode); setSelected(null) }}>Xem chi tiết lớp học</Button></Card>
+          <Card size="small" className="student-course-detail"><Typography.Text type="secondary">Lớp học</Typography.Text><strong>{selected.course}</strong><Typography.Text type="secondary">Mã lớp {selected.classCode}</Typography.Text><Button onClick={() => { setFocusedClassCode(selected.classCode); setSelectedId(undefined) }}>Xem chi tiết lớp học</Button></Card>
         </> : <Empty />}
       </Drawer>
     </StudentLayout>

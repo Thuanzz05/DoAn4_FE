@@ -7,7 +7,7 @@ import {
   ClockCounterClockwise,
   Receipt,
 } from '@phosphor-icons/react'
-import { Alert, Card, Col, Empty, Flex, Progress, Row, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd'
+import { Alert, Button, Card, Col, Empty, Flex, Progress, Row, Select, Skeleton, Space, Table, Tabs, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import StudentLayout, { type StudentPage } from './StudentLayout'
@@ -47,19 +47,26 @@ const attendanceColumns: ColumnsType<Attendance> = [
 function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResultsProps) {
   const [result, setResult] = useState<ResultApi>({ exams: [], attendance: [] })
   const [eligibility, setEligibility] = useState<Eligibility[]>([])
-  const [enrollmentId, setEnrollmentId] = useState<number>()
-  const [examId, setExamId] = useState<number>()
+  const [selection, setSelection] = useState<{ enrollmentId?: number; examId?: number }>({})
+  const { enrollmentId, examId } = selection
   const [loading, setLoading] = useState(true)
-  const [messageApi, contextHolder] = message.useMessage()
+  const [error, setError] = useState('')
+  const [reload, setReload] = useState(0)
   useEffect(() => {
-    let active = true
-    Promise.all([api<ResultApi>('/student/results'), api<Eligibility[]>('/student/certificate-eligibility')]).then(([data, conditions]) => {
-      if (!active) return
-      const firstEnrollment = conditions[0]?.enrollmentId ?? data.exams[0]?.enrollmentId
-      setResult(data); setEligibility(conditions); setEnrollmentId(firstEnrollment); setExamId(data.exams.find((item) => item.enrollmentId === firstEnrollment)?.examId)
-    }).catch((error) => { if (active) messageApi.error(errorMessage(error)) }).finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
-  }, [messageApi])
+    const controller = new AbortController()
+    setLoading(true); setError('')
+    Promise.all([api<ResultApi>('/student/results', { signal: controller.signal }), api<Eligibility[]>('/student/certificate-eligibility', { signal: controller.signal })]).then(([data, conditions]) => {
+      if (controller.signal.aborted) return
+      setResult(data); setEligibility(conditions)
+      setSelection((current) => {
+        const nextEnrollment = conditions.some((item) => item.enrollmentId === current.enrollmentId) ? current.enrollmentId : conditions[0]?.enrollmentId ?? data.exams[0]?.enrollmentId
+        const classId = conditions.find((item) => item.enrollmentId === nextEnrollment)?.classId
+        const available = data.exams.filter((item) => item.enrollmentId === nextEnrollment && item.classId === classId)
+        return { enrollmentId: nextEnrollment, examId: available.some((item) => item.examId === current.examId) ? current.examId : available[0]?.examId }
+      })
+    }).catch((err) => { if (!controller.signal.aborted) setError(errorMessage(err)) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [reload])
   const condition = eligibility.find((item) => item.enrollmentId === enrollmentId)
   const exams = result.exams.filter((item) => item.enrollmentId === enrollmentId && item.classId === condition?.classId)
   const exam = exams.find((item) => item.examId === examId) ?? exams[0]
@@ -120,8 +127,8 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
 
   return (
     <StudentLayout activePage="student-results" mainId="student-results" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-      {contextHolder}
-      <AdminPageHeader kicker="Kết quả học tập" title="Điểm số và chuyên cần" description="Theo dõi từng khóa học, kể cả lớp chưa có kỳ thi." actions={<Space wrap><Select aria-label="Chọn khóa và lớp học" value={enrollmentId} loading={loading} onChange={(value) => { setEnrollmentId(value); setExamId(result.exams.find((item) => item.enrollmentId === value)?.examId) }} disabled={!eligibility.length} placeholder="Chọn khóa / lớp" style={{ minWidth: 240, maxWidth: '100%' }} options={eligibility.map((item) => ({ value: item.enrollmentId, label: `${item.courseName} · ${enrollmentLabels[item.enrollmentStatus] ?? item.enrollmentStatus} · ${item.classCode ?? 'Chưa xếp lớp'}${item.className ? ` · ${item.className}` : ''}` }))} /><Select aria-label="Chọn kỳ thi" value={exam?.examId} onChange={setExamId} disabled={!exams.length} placeholder="Chưa có kỳ thi" style={{ minWidth: 200, maxWidth: '100%' }} options={exams.map((item) => ({ value: item.examId, label: item.examName }))} /></Space>} />
+      <AdminPageHeader kicker="Kết quả học tập" title="Điểm số và chuyên cần" description="Theo dõi từng khóa học, kể cả lớp chưa có kỳ thi." actions={<Space wrap><Select aria-label="Chọn khóa và lớp học" value={enrollmentId} loading={loading} onChange={(value) => { const classId = eligibility.find((item) => item.enrollmentId === value)?.classId; setSelection({ enrollmentId: value, examId: result.exams.find((item) => item.enrollmentId === value && item.classId === classId)?.examId }) }} disabled={loading || Boolean(error) || !eligibility.length} placeholder="Chọn khóa / lớp" style={{ minWidth: 240, maxWidth: '100%' }} options={eligibility.map((item) => ({ value: item.enrollmentId, label: `${item.courseName} · ${enrollmentLabels[item.enrollmentStatus] ?? item.enrollmentStatus} · ${item.classCode ?? 'Chưa xếp lớp'}${item.className ? ` · ${item.className}` : ''}` }))} /><Select aria-label="Chọn kỳ thi" value={exam?.examId} onChange={(value) => setSelection((current) => ({ ...current, examId: value }))} disabled={loading || Boolean(error) || !exams.length} placeholder="Chưa có kỳ thi" style={{ minWidth: 200, maxWidth: '100%' }} options={exams.map((item) => ({ value: item.examId, label: item.examName }))} /><Button loading={loading} onClick={() => setReload((value) => value + 1)}>Làm mới</Button></Space>} />
+      {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : error ? <Alert type="error" showIcon title="Chưa tải được kết quả học tập" description={error} action={<Button onClick={() => setReload((value) => value + 1)}>Thử lại</Button>} /> : !eligibility.length && !result.exams.length && !result.attendance.length ? <Empty description="Chưa có dữ liệu học tập" /> : <>
       <AdminSummary items={[
         { label: 'Điểm trung bình kỳ thi', value: scoreLabel(average), detail: exam?.examName ?? 'Chưa có kỳ thi', icon: <ChartBar weight="duotone" /> },
         { label: 'Chuyên cần', value: expectedAttendance ? `${rate.toFixed(1)}%` : '—', detail: `${recordedAttendance}/${expectedAttendance} buổi có điểm danh`, icon: <CalendarCheck weight="duotone" />, tone: rate >= 80 ? 'success' : undefined },
@@ -134,6 +141,7 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
         { key: 'certificate', label: 'Điều kiện chứng chỉ', children: certificateTab },
         { key: 'history', label: 'Lịch sử học tập', children: historyTab },
       ]} /></Card>
+      </>}
     </StudentLayout>
   )
 }

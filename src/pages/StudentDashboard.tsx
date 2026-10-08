@@ -32,7 +32,14 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
   const [data, setData] = useState<Dashboard>()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  useEffect(() => { let active = true; api<Dashboard>('/student/dashboard').then((result) => { if (active) setData(result) }).catch((err) => { if (active) setError(errorMessage(err)) }).finally(() => { if (active) setLoading(false) }); return () => { active = false } }, [])
+  const [reload, setReload] = useState(0)
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true); setError('')
+    api<Dashboard>('/student/dashboard', { signal: controller.signal }).then((result) => { if (!controller.signal.aborted) setData(result) })
+      .catch((err) => { if (!controller.signal.aborted) setError(errorMessage(err)) }).finally(() => { if (!controller.signal.aborted) setLoading(false) })
+    return () => controller.abort()
+  }, [reload])
   const expectedAttendance = Number(data?.expectedAttendance ?? 0)
   const recordedAttendance = Number(data?.recordedAttendance ?? 0)
   const attendanceRate = Number(data?.attendanceRate ?? 0)
@@ -47,13 +54,12 @@ function StudentDashboard({ onLogout, onNavigate, onNavigateHome }: StudentDashb
 
   return (
     <StudentLayout activePage="student" mainId="student-dashboard" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-      {error && <Alert type="error" showIcon title={error} />}
-      {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : data && <>
+      {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : error ? <Alert type="error" showIcon title="Chưa tải được tổng quan học tập" description={error} action={<Button onClick={() => setReload((value) => value + 1)}>Thử lại</Button>} /> : data && <>
       <AdminPageHeader
         kicker="Không gian học viên"
         title={`Chào bạn, ${data?.user.fullName ?? 'học viên'}`}
         description="Theo dõi lịch học, kết quả, chuyên cần và học phí của bạn tại một nơi."
-        actions={<Button type="primary" icon={<CalendarBlank />} onClick={() => onNavigate('student-schedule')}>Xem lịch học</Button>}
+        actions={<Space wrap><Button onClick={() => setReload((value) => value + 1)}>Làm mới</Button><Button type="primary" icon={<CalendarBlank />} onClick={() => onNavigate('student-schedule')}>Xem lịch học</Button></Space>}
       />
 
       <AdminSummary items={[

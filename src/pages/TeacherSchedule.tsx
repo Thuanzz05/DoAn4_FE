@@ -9,12 +9,13 @@ import {
   UsersThree,
   WarningCircle,
 } from '@phosphor-icons/react'
-import { Alert, Avatar, Button, Card, Divider, Drawer, Empty, Flex, Input, Segmented, Skeleton, Space, Tag, Typography, message } from 'antd'
+import { Alert, Avatar, Button, Card, Divider, Drawer, Empty, Flex, Input, Segmented, Skeleton, Space, Tag, Typography } from 'antd'
 import { AdminPageHeader } from './AdminPageKit'
 import TeacherLayout, { type TeacherPage } from './TeacherLayout'
 import './TeacherSchedule.css'
 import './StudentSchedule.css'
 import { api, errorMessage } from '../api'
+import { sessionTiming } from '../sessionTiming'
 
 type TeacherScheduleProps = {
   onLogout: () => void
@@ -26,15 +27,17 @@ type Session = {
   id: number
   classId: number
   startsAt: string
+  endsAt: string
   date: string
   time: string
   name: string
   code: string
   room: string
   students: number
-  status: 'Đã hoàn tất' | 'Sắp diễn ra' | 'Đã hủy'
+  status: string
+  attendanceMarked: number
 }
-type SessionApi = { id: number; classId: number; classCode: string; className: string; startsAt: string; endsAt: string; status: string; roomCode: string; students: number }
+type SessionApi = { id: number; classId: number; classCode: string; className: string; startsAt: string; endsAt: string; status: string; roomCode: string; students: number; attendanceMarked: number }
 type StudentApi = { enrollmentId: number; studentCode: string; studentName: string; status: 'co_mat' | 'di_muon' | 'vang' | null; attendanceRate: number | null; expectedAttendance: number; recordedAttendance: number }
 
 const DAY = 86_400_000
@@ -52,13 +55,16 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
   const [view, setView] = useState<'day' | 'week' | 'month'>('week')
   const [classFilter, setClassFilter] = useState(() => { const value = Number(sessionStorage.getItem('teacher-schedule-class')); sessionStorage.removeItem('teacher-schedule-class'); return value || undefined })
   const [sessions, setSessions] = useState<Session[]>([])
-  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [sessionsLoading, setSessionsLoading] = useState(true)
   const [sessionsError, setSessionsError] = useState('')
   const [selected, setSelected] = useState<Session | null>(null)
   const [students, setStudents] = useState<StudentApi[]>([])
   const [studentsLoading, setStudentsLoading] = useState(false)
   const [studentsError, setStudentsError] = useState('')
-  const [messageApi, contextHolder] = message.useMessage()
+  const [sessionsRetry, setSessionsRetry] = useState(0)
+  const [studentsRetry, setStudentsRetry] = useState(0)
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer) }, [])
   const dateFormat = useMemo(() => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }), [])
   const fullDateFormat = useMemo(() => new Intl.DateTimeFormat('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' }), [])
   const weekStart = startOfWeek(anchor)
@@ -77,18 +83,20 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
         id: item.id,
         classId: item.classId,
         startsAt: item.startsAt,
+        endsAt: item.endsAt,
         date: String(item.startsAt).slice(0, 10),
         time: `${new Date(item.startsAt.replace(' ', 'T')).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt.replace(' ', 'T')).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`,
         name: item.className,
         code: item.classCode,
         room: item.roomCode,
         students: Number(item.students),
-        status: item.status === 'da_hoc' ? 'Đã hoàn tất' : item.status === 'da_huy' ? 'Đã hủy' : 'Sắp diễn ra',
+        status: item.status,
+        attendanceMarked: Number(item.attendanceMarked),
       }))) })
       .catch((error) => { if (active) setSessionsError(errorMessage(error)) })
       .finally(() => { if (active) setSessionsLoading(false) })
     return () => { active = false }
-  }, [messageApi, from, to])
+  }, [from, to, sessionsRetry])
 
   useEffect(() => {
     setStudents([]); setStudentsError('')
@@ -100,19 +108,20 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
       .catch((error) => { if (active) setStudentsError(errorMessage(error)) })
       .finally(() => { if (active) setStudentsLoading(false) })
     return () => { active = false }
-  }, [messageApi, selected])
+  }, [selected, studentsRetry])
+  const timing = (session: Session) => sessionTiming(session.startsAt, session.endsAt, session.status, now)
+  const attendanceText = (session: Session) => session.status === 'da_huy' ? 'Không điểm danh buổi hủy' : session.students ? `Đã điểm danh ${session.attendanceMarked}/${session.students} học viên` : 'Chưa có học viên'
 
   return (
     <TeacherLayout activePage="teacher-schedule" mainId="teacher-schedule" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
-      {contextHolder}
       <AdminPageHeader
         kicker="Lịch giảng dạy"
         title="Thời khóa biểu"
         description="Xem lịch theo ngày, tuần hoặc tháng; mở buổi học để kiểm tra danh sách học viên."
-        actions={<Segmented value={view} onChange={(value) => setView(value as typeof view)} options={[{ label: 'Ngày', value: 'day' }, { label: 'Tuần', value: 'week' }, { label: 'Tháng', value: 'month' }]} />}
+        actions={<Space wrap><Button loading={sessionsLoading} onClick={() => setSessionsRetry((value) => value + 1)}>Tải lại lịch</Button><Segmented value={view} onChange={(value) => setView(value as typeof view)} options={[{ label: 'Ngày', value: 'day' }, { label: 'Tuần', value: 'week' }, { label: 'Tháng', value: 'month' }]} /></Space>}
       />
 
-      <Alert className="teacher-schedule-alert" type={sessionsError ? 'error' : 'info'} showIcon title={sessionsError ? 'Không tải được lịch giảng dạy' : sessionsLoading ? 'Đang tải lịch giảng dạy' : 'Lịch giảng dạy đã đồng bộ'} description={sessionsError || 'Dữ liệu được cập nhật từ lịch học do quản trị viên xếp.'} />
+      <Alert className="teacher-schedule-alert" type={sessionsError ? 'error' : 'info'} showIcon title={sessionsError ? 'Không tải được lịch giảng dạy' : sessionsLoading ? 'Đang tải lịch giảng dạy' : 'Lịch giảng dạy đã đồng bộ'} description={sessionsError || 'Dữ liệu được cập nhật từ lịch học do quản trị viên xếp.'} action={sessionsError && <Button onClick={() => setSessionsRetry((value) => value + 1)}>Thử lại lịch</Button>} />
 
       <Card className="teacher-schedule-card">
         <Flex className="teacher-schedule-toolbar" align="center" justify="space-between" gap={16} wrap>
@@ -130,7 +139,7 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
 
         {sessionsLoading ? <Skeleton active paragraph={{ rows: 6 }} /> : sessionsError ? null : view === 'month' ? <div className="student-month-scroll"><div className="student-month-calendar">
           {['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'].map((day) => <strong className="student-month-weekday" key={day}>{day}</strong>)}
-          {days.map((date) => <section className={`${date.getMonth() !== anchor.getMonth() ? 'outside' : ''} ${sameDay(date, new Date()) ? 'is-today' : ''}`} key={dateKey(date)}><span>{date.getDate()}</span>{visibleSessions.filter((session) => session.date === dateKey(date)).map((session) => <button type="button" key={session.id} onClick={() => setSelected(session)}>{session.time} · {session.name} · {session.status}</button>)}</section>)}
+          {days.map((date) => <section className={`${date.getMonth() !== anchor.getMonth() ? 'outside' : ''} ${sameDay(date, new Date()) ? 'is-today' : ''}`} key={dateKey(date)}><span>{date.getDate()}</span>{visibleSessions.filter((session) => session.date === dateKey(date)).map((session) => <button type="button" key={session.id} onClick={() => setSelected(session)}>{session.time} · {session.name} · {timing(session).label}<br />{attendanceText(session)}</button>)}</section>)}
         </div></div> : visibleSessions.length ? (
           <div className="teacher-week-scroll">
             <div className="teacher-week-grid" style={view === 'day' ? { minWidth: 0, gridTemplateColumns: '1fr' } : undefined}>
@@ -143,7 +152,7 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
                         <span className="teacher-schedule-time"><Clock />{session.time}</span>
                         <strong>{session.name}</strong>
                         <small><MapPin />{session.room}</small>
-                        <Tag color={session.status === 'Đã hoàn tất' ? 'green' : session.status === 'Đã hủy' ? 'red' : 'blue'}>{session.status}</Tag>
+                        <Tag color={timing(session).color}>{timing(session).label}</Tag><small>{attendanceText(session)}</small>
                       </button>
                     ))}
                   </div>
@@ -154,7 +163,7 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
         ) : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Khoảng đang xem chưa có lịch giảng dạy" />}
 
         <Flex className="teacher-schedule-legend" gap={18} wrap>
-          <span><i className="done" />Đã hoàn tất</span><span><i className="upcoming" />Sắp diễn ra</span><span><i className="changed" />Đã hủy</span>
+          <span><i className="done" />Đang diễn ra</span><span><i className="upcoming" />Sắp diễn ra</span><span>Đã kết thúc</span><span><i className="changed" />Đã hủy</span>
         </Flex>
       </Card>
 
@@ -166,15 +175,16 @@ function TeacherSchedule({ onLogout, onNavigate, onNavigateHome }: TeacherSchedu
             <span><CalendarBlank />{fullDateFormat.format(new Date(`${selected.date}T00:00:00`))}</span>
             <span><MapPin />Phòng {selected.room.replace('P.', '')}</span>
             <span><UsersThree />{selected.students} học viên</span>
-            <span>{selected.status === 'Đã hoàn tất' ? <CheckCircle /> : <WarningCircle />} {selected.status}</span>
+            <span>{timing(selected).label === 'Đã kết thúc' ? <CheckCircle /> : <WarningCircle />} {timing(selected).label}</span>
+            <span>{attendanceText(selected)}</span>
           </Space>
           <Divider />
-          <Typography.Title level={5}>Danh sách học viên</Typography.Title>
-          {studentsLoading ? <Skeleton active paragraph={{ rows: 3 }} /> : studentsError ? <Alert type="error" showIcon title="Không tải được danh sách học viên" description={studentsError} /> : students.length ? <div className="teacher-student-preview">{students.map((student) => {
+          <Flex align="center" justify="space-between" gap={8}><Typography.Title level={5}>Danh sách học viên</Typography.Title><Button loading={studentsLoading} onClick={() => setStudentsRetry((value) => value + 1)}>Tải lại học viên</Button></Flex>
+          {studentsLoading ? <Skeleton active paragraph={{ rows: 3 }} /> : studentsError ? <Alert type="error" showIcon title="Không tải được danh sách học viên" description={studentsError} action={<Button onClick={() => setStudentsRetry((value) => value + 1)}>Thử lại học viên</Button>} /> : students.length ? <div className="teacher-student-preview">{students.map((student) => {
             const attendance = student.status === 'co_mat' ? ['green', 'Có mặt'] : student.status === 'di_muon' ? ['gold', 'Đi muộn'] : student.status === 'vang' ? ['red', 'Vắng'] : ['default', 'Chưa điểm danh']
             return <Flex key={student.enrollmentId} align="center" gap={10}><Avatar>{student.studentName.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div style={{ flex: 1 }}><Typography.Text strong>{student.studentName}</Typography.Text><br /><Typography.Text type="secondary">{student.studentCode} · Chuyên cần {student.expectedAttendance > 0 && student.attendanceRate !== null ? `${Number(student.attendanceRate).toFixed(1)}%` : '—'} · {student.recordedAttendance}/{student.expectedAttendance} buổi đã ghi nhận</Typography.Text></div><Tag color={attendance[0]}>{attendance[1]}</Tag></Flex>
           })}</div> : <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Lớp chưa có học viên" />}
-          <Button type="primary" block className="teacher-open-attendance" disabled={selected.status === 'Đã hủy' || new Date(selected.startsAt.replace(' ', 'T')).getTime() > Date.now()} onClick={() => { sessionStorage.setItem('teacher-attendance-session', String(selected.id)); onNavigate('teacher-attendance') }}>{selected.status === 'Đã hủy' ? 'Buổi học đã hủy' : new Date(selected.startsAt.replace(' ', 'T')).getTime() > Date.now() ? 'Chưa đến giờ điểm danh' : 'Mở điểm danh buổi này'}</Button>
+          <Button type="primary" block className="teacher-open-attendance" disabled={studentsLoading || Boolean(studentsError || sessionsError) || selected.status === 'da_huy' || new Date(selected.startsAt.replace(' ', 'T')).getTime() > now} onClick={() => { sessionStorage.removeItem('teacher-attendance-class'); sessionStorage.setItem('teacher-attendance-session', String(selected.id)); onNavigate('teacher-attendance') }}>{selected.status === 'da_huy' ? 'Buổi học đã hủy' : new Date(selected.startsAt.replace(' ', 'T')).getTime() > now ? 'Chưa đến giờ điểm danh' : 'Mở điểm danh buổi này'}</Button>
         </>}
       </Drawer>
     </TeacherLayout>

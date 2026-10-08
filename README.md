@@ -16,4 +16,5 @@ Mở địa chỉ Vite hiển thị trên terminal (mặc định là `http://lo
 - `npm run dev`: chạy môi trường phát triển.
 - `npm run build`: kiểm tra TypeScript và tạo bản production.
 - `npm run lint`: kiểm tra chất lượng code.
+- `npm test`: kiểm tra các handler giao diện bằng API giả lập, không thay đổi dữ liệu thật. Đây không thay thế kiểm thử đầu-cuối trên trình duyệt.
 - `npm run preview`: xem thử bản production.

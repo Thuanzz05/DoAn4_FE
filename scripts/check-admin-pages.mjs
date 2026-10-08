@@ -1,0 +1,134 @@
+// Run: node scripts/check-admin-pages.mjs — real page handlers, mocked API, no server/data writes.
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import vm from 'node:vm'
+import ts from 'typescript'
+
+const jsx = (type, props) => ({ type, props })
+const text = (value) => value == null || typeof value === 'boolean' ? '' : Array.isArray(value) ? value.map(text).join('') : typeof value === 'object' ? text(value.props?.children) : String(value)
+const nodes = (value) => !value || typeof value !== 'object' ? [] : [...(value.type && value.props ? [value] : []), ...Object.values(value).flatMap(nodes)]
+const same = (left, right) => left && right && left.length === right.length && left.every((value, index) => Object.is(value, right[index]))
+
+function harness(page, initial) {
+  let cursor = 0, tree
+  const hooks = [], effects = [], calls = [], confirmations = [], responses = new Map(Object.entries(initial))
+  const slot = (init) => { const index = cursor++; return hooks[index] ??= init() }
+  const react = {
+    useState: (initialValue) => { const state = slot(() => ({ value: initialValue })); return [state.value, (value) => { state.value = typeof value === 'function' ? value(state.value) : value }] },
+    useRef: (value) => slot(() => ({ current: value })),
+    useMemo: (fn, deps) => { const state = slot(() => ({})); if (!same(state.deps, deps)) { state.value = fn(); state.deps = deps } return state.value },
+    useEffect: (fn, deps) => { const state = slot(() => ({})); if (!same(state.deps, deps)) { state.deps = deps; effects.push(() => { state.cleanup?.(); state.cleanup = fn() }) } },
+  }
+  const api = async (path, options = {}) => {
+    calls.push({ path, options })
+    const result = responses.get(path)
+    if (result instanceof Error) throw result
+    return typeof result === 'function' ? result(options) : result ?? []
+  }
+  const form = { setFieldsValue() {}, resetFields() {}, setFields() {}, submit() {}, setFieldValue() {} }
+  const antd = Object.fromEntries(['Alert', 'Avatar', 'Button', 'Card', 'Descriptions', 'Drawer', 'Flex', 'InputNumber', 'Popconfirm', 'Progress', 'Select', 'Table', 'Tabs', 'Tag', 'Timeline'].map((key) => [key, key]))
+  const Form = Object.assign(() => {}, { Item: 'FormItem', useForm: () => [form], useWatch: () => undefined })
+  const messageApi = { success() {}, warning() {}, error() {} }
+  Object.assign(antd, {
+    Form, Input: Object.assign(() => {}, { TextArea: 'TextArea', Password: 'Password' }),
+    Space: Object.assign(() => {}, { Compact: 'Compact' }), Typography: { Text: 'Text', Paragraph: 'Paragraph', Title: 'Title' },
+    Modal: Object.assign(() => {}, { useModal: () => [{ confirm: (options) => confirmations.push(options), warning() {} }, null] }),
+    message: { useMessage: () => [messageApi, null] },
+  })
+  const compiled = ts.transpileModule(readFileSync(new URL(`../src/pages/${page}.tsx`, import.meta.url), 'utf8'), { compilerOptions: {
+    module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true,
+  } }).outputText
+  const exports = {}
+  vm.runInNewContext(compiled, { exports, require: (name) => {
+    if (name === 'react') return react
+    if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' }
+    if (name === 'antd') return antd
+    if (name === '../api') return { api, apiBlob: api, errorMessage: (error) => error.message, json: (method, body) => ({ method, body: JSON.stringify(body) }), ApiError: Error }
+    if (name === './AdminPageKit') return { AdminPageHeader: 'Header', AdminSummary: 'Summary' }
+    if (name === '@phosphor-icons/react') return new Proxy({}, { get: (_, key) => String(key) })
+    return { __esModule: true, default: name }
+  }, Date, Intl })
+  const render = () => { cursor = 0; tree = exports.default({ onLogout() {}, onNavigate() {}, onNavigateHome() {} }); for (const effect of effects.splice(0)) effect(); return tree }
+  const flush = async () => { for (let i = 0; i < 12; i++) { await Promise.resolve(); render() } }
+  const all = (type, predicate = () => true) => nodes(tree).filter((node) => node.type === type && predicate(node.props)).map((node) => node.props)
+  const find = (type, predicate) => { const found = all(type, predicate)[0]; assert.ok(found, `${page}: missing ${type}`); return found }
+  const button = (label) => find('Button', (props) => text(props.children) === label)
+  render()
+  return { flush, find, all, button, Form, calls, confirmations, set: (path, response) => responses.set(path, response) }
+}
+
+const routes = ['/users?role=hoc_vien', '/enrollments', '/invoices', '/courses/all', '/classes', '/rooms', '/schedules', '/users?role=giao_vien', '/exams']
+for (const [page, failingRoute, action] of [
+  ['AdminStudents', '/users?role=hoc_vien', 'Ghi danh học viên'], ['AdminCourses', '/courses/all', 'Thêm khóa học'],
+  ['AdminClasses', '/classes', 'Tạo lớp học'], ['AdminTeachers', '/users?role=giao_vien', 'Thêm giáo viên'],
+  ['AdminSchedule', '/schedules', 'Xếp lịch mới'], ['AdminExams', '/exams', 'Tạo kỳ thi'],
+]) {
+  const mock = Object.fromEntries(routes.map((route) => [route, []])); mock[failingRoute] = new Error('Mất kết nối')
+  const pageState = harness(page, mock)
+  assert.equal(pageState.all('Summary').length, 0, 'loading never displays zero metrics')
+  await pageState.flush()
+  assert.equal(pageState.all('Summary').length, 0, 'load failure never displays zero metrics')
+  assert.equal(pageState.button(action).disabled, true, 'mutation disabled after failure')
+  assert.match(pageState.find('Table').locale.emptyText, /Chưa tải được/, 'failed fetch is not a genuinely empty list')
+  pageState.set(failingRoute, []); pageState.button('Thử lại').onClick(); await pageState.flush()
+  assert.equal(pageState.all('Alert', (props) => props.type === 'error').length, 0, 'retry recovers in-place')
+}
+
+const student = { id: 1, code: 'HV1', fullName: 'Học viên', email: 'hv@example.test', phone: '0912345678', birthDate: '2000-01-01', active: 1, createdAt: '2026-01-01' }
+const studentPage = harness('AdminStudents', { '/users?role=hoc_vien': [student], '/enrollments': [{ id: 10, studentId: 1, courseId: 1, courseName: 'Khóa', classId: null, className: null, status: 'da_huy', attendance: 0, canChangeClass: 0, enrolledAt: '2026-01-01' }] })
+await studentPage.flush()
+let table = studentPage.find('Table'), row = table.dataSource[0]
+table.columns.find((column) => column.key === 'action').render(null, row).props.onClick(); await studentPage.flush()
+assert.equal(studentPage.button('Xóa hồ sơ').disabled, true, 'any historical enrollment prevents account deletion')
+const unlinked = harness('AdminStudents', { '/users?role=hoc_vien': [student] }); await unlinked.flush()
+table = unlinked.find('Table'); table.columns.find((column) => column.key === 'action').render(null, table.dataSource[0]).props.onClick(); await unlinked.flush()
+assert.equal(unlinked.button('Xóa hồ sơ').disabled, false, 'unlinked account may be deleted')
+
+const course = { id: 1, code: 'K1', name: 'Khóa', language: 'Tiếng Anh', level: 'A1', sessions: 1, tuition: 1000, linkedClasses: 0, description: '', status: 'dang_mo' }
+const classRow = (id, teacherId = 1) => ({ id, code: `L${id}`, name: `Lớp ${id}`, courseId: 1, courseName: 'Khóa', teacherId, teacherName: 'Giáo viên', startDate: '2026-01-01', sessions: 1, generatedSessions: 1, effectiveSessions: 1, completedSessions: 0, capacity: 20, status: 'dang_hoc', enrolled: 1, certificateLocked: 0 })
+const schedule = (id, roomCode, classId = 1) => ({ id, classId, className: 'Lớp 1', teacherName: 'Giáo viên', roomId: id, roomCode, dayOfWeek: 2, startTime: '18:00:00', endTime: '19:00:00' })
+const classes = harness('AdminClasses', { '/classes': [classRow(1), classRow(2), classRow(3)], '/courses/all': [course], '/users?role=giao_vien': [{ id: 1, fullName: 'Đã khóa', active: 0 }, { id: 2, fullName: 'Hoạt động', active: 1 }, { id: 3, fullName: 'Khóa khác', active: 0 }], '/schedules': [schedule(1, 'P1, khu A'), schedule(2, 'P2'), schedule(3, 'P2', 2)] })
+await classes.flush()
+assert.equal(classes.find('Summary').items[2].value, 2, 'unique source room codes, not commas/dashes in display text')
+table = classes.find('Table'); table.columns.find((column) => column.key === 'action').render(null, table.dataSource[0]).props.onClick(); await classes.flush()
+classes.button('Sửa thông tin lớp').onClick(); await classes.flush()
+const options = classes.find('Select', (props) => props.options?.some((item) => item.label === 'Đã khóa · Đã khóa')).options
+assert.deepEqual(Array.from(options, (item) => item.value), [1, 2]); assert.equal(options[0].disabled, true)
+
+const schedules = harness('AdminSchedule', { '/classes': [{ ...classRow(1), language: 'Tiếng Anh' }], '/schedules': [schedule(1, 'P1')], '/rooms': [{ id: 1, code: 'P1', capacity: 30 }] }); await schedules.flush()
+table = schedules.find('Table'); const controls = nodes(table.columns.find((column) => column.key === 'action').render(null, table.dataSource[0])).filter((node) => node.type === 'Button')
+assert.equal(controls[0].props.disabled, false, 'generated sessions still allow PATCH room/time')
+assert.equal(controls[1].props.disabled, true, 'generated sessions disable schedule deletion')
+
+const courses = harness('AdminCourses', { '/courses/all': [course] }); await courses.flush()
+courses.button('Thêm khóa học').onClick(); await courses.flush()
+let release
+courses.set('/courses', () => new Promise((resolve) => { release = resolve }))
+const save = courses.find(courses.Form).onFinish, values = { ...course, code: 'NEW', status: 'Đang mở' }
+const first = save(values); const second = save(values)
+assert.equal(courses.calls.filter((call) => call.path === '/courses').length, 1, 'pending ref blocks double save before rerender')
+release({}); await Promise.all([first, second]); await courses.flush()
+
+// Loading a different class or closing the drawer invalidates the async academic shortcut.
+const session = { id: 10, classId: 1, teacherId: 1, teacherName: 'Giáo viên', roomId: 1, roomCode: 'P1', startsAt: '2020-01-01 18:00:00', endsAt: '2020-01-01 19:00:00', status: 'da_len_lich', attendanceCount: 0, missingAttendanceCount: 1 }
+const academic = harness('AdminClasses', { '/classes': [classRow(1), classRow(2)], '/classes/1/sessions': [session], '/classes/2/sessions': [] }); await academic.flush()
+table = academic.find('Table'); const open = table.columns.find((column) => column.key === 'action').render
+open(null, table.dataSource[0]).props.onClick(); await academic.flush()
+academic.set('/classes/1/sessions', () => new Promise((resolve) => { release = resolve }))
+const shortcut = academic.find('./AcademicDetails').onOpenSession; shortcut(10); await academic.flush()
+academic.find('Drawer', (props) => props.title === 'Thông tin lớp học').onClose(); await academic.flush()
+open(null, table.dataSource[1]).props.onClick(); await academic.flush()
+release([session]); await academic.flush()
+assert.equal(academic.calls.filter((call) => call.path === '/sessions/10/attendance').length, 0, 'stale shortcut never opens previous class attendance')
+assert.equal(academic.find('Tabs').activeKey, 'overview')
+academic.find('Drawer', (props) => props.title === 'Thông tin lớp học').onClose(); await academic.flush()
+academic.set('/classes/1/sessions', [session]); academic.set('/sessions/10/attendance', { session, students: [{ enrollmentId: 1, studentCode: 'HV1', studentName: 'Học viên', status: null, note: null, certificateId: null }] })
+table = academic.find('Table'); table.columns.find((column) => column.key === 'action').render(null, table.dataSource[0]).props.onClick(); await academic.flush()
+academic.set('/classes/1/sessions', new Error('Lỗi tải buổi học')); academic.find('./AcademicDetails').onOpenSession(10); await academic.flush()
+assert.equal(academic.find('Alert', (props) => props.title === 'Không tải được buổi học').type, 'error')
+assert.equal(academic.calls.filter((call) => call.path === '/sessions/10/attendance').length, 0, 'failed shortcut does not use stale sessions')
+academic.set('/classes/1/sessions', [session]); academic.button('Thử lại').onClick(); await academic.flush()
+academic.find('./AcademicDetails').onOpenSession(10); await academic.flush()
+assert.equal(academic.find('Tabs').activeKey, 'sessions')
+assert.equal(academic.calls.filter((call) => call.path === '/sessions/10/attendance').length, 1, 'shortcut loads attendance for the freshly selected session')
+console.log('PASS: six-page failure/retry; enrollment/schedule guards; active teacher options; unique rooms; double save; stale academic shortcut.')

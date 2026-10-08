@@ -29,6 +29,13 @@ function RegisterPage({ onNavigateHome, onNavigateLogin, onAuthenticated }: Regi
     const formData = new FormData(event.currentTarget)
     const password = String(formData.get('password') ?? '')
     const confirmPassword = String(formData.get('confirmPassword') ?? '')
+    const phone = String(formData.get('phone') ?? '').trim()
+
+    if (!/^0\d{9}$/.test(phone)) {
+      setIsError(true)
+      setStatus('Số điện thoại phải gồm 10 số và bắt đầu bằng 0.')
+      return
+    }
 
     if (password !== confirmPassword) {
       setIsError(true)
@@ -43,7 +50,7 @@ function RegisterPage({ onNavigateHome, onNavigateLogin, onAuthenticated }: Regi
       const session = await api<AuthSession>('/auth/register', json('POST', {
         fullName: formData.get('fullName'),
         email: formData.get('email'),
-        phone: formData.get('phone'),
+        phone,
         password,
       }))
       saveSession(session)
@@ -104,7 +111,7 @@ function RegisterPage({ onNavigateHome, onNavigateLogin, onAuthenticated }: Regi
 
                 <div className="register-field">
                   <label htmlFor="register-phone">Số điện thoại</label>
-                  <input id="register-phone" name="phone" type="tel" autoComplete="tel" required placeholder="Nhập số điện thoại" />
+                  <input id="register-phone" name="phone" type="tel" autoComplete="tel" inputMode="numeric" pattern="0[0-9]{9}" maxLength={10} title="Số điện thoại gồm 10 số và bắt đầu bằng 0" required placeholder="10 số, bắt đầu bằng 0" />
                 </div>
 
                 <div className="register-field">

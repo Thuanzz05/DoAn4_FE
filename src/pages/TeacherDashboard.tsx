@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   ArrowRight,
   CalendarBlank,
@@ -15,6 +15,7 @@ import { AdminPageHeader, AdminSummary } from './AdminPageKit'
 import TeacherLayout, { type TeacherPage } from './TeacherLayout'
 import './TeacherDashboard.css'
 import { api, errorMessage } from '../api'
+import { sessionTiming } from '../sessionTiming'
 
 type TeacherDashboardProps = {
   onLogout: () => void
@@ -41,10 +42,15 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
   const [classes, setClasses] = useState<ClassRow[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const loadVersion = useRef(0)
+  const [now, setNow] = useState(Date.now)
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer) }, [])
   const load = useCallback(async () => {
+    const version = ++loadVersion.current
     setLoading(true); setLoadError(null)
     try {
       const [summary, rows] = await Promise.all([api<DashboardApi>('/teacher/dashboard'), api<ClassApi[]>('/teacher/classes')])
+      if (version !== loadVersion.current) return
       setDashboard(summary)
       setClasses(rows.map((item) => {
         const pending = Number(item.pendingAttendance); const completed = item.status === 'da_ket_thuc'
@@ -54,11 +60,11 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
           nextTask: pending ? `Điểm danh (${pending})` : completed ? 'Nhập điểm' : 'Xem lịch',
           actionPage: pending ? 'teacher-attendance' : completed ? 'teacher-grades' : 'teacher-schedule' }
       }))
-    } catch (error) { setLoadError(errorMessage(error)) }
-    finally { setLoading(false) }
+    } catch (error) { if (version === loadVersion.current) setLoadError(errorMessage(error)) }
+    finally { if (version === loadVersion.current) setLoading(false) }
   }, [])
-  useEffect(() => { void load() }, [load])
-  const todaySessions = dashboard.todaySessions.map((item) => { const canAttend = item.status !== 'da_huy' && new Date(item.startsAt.replace(' ', 'T')).getTime() <= Date.now(); return { id: item.id, time: `${new Date(item.startsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`, name: item.className, room: item.roomCode, status: item.status === 'da_hoc' ? 'Đã hoàn tất' : item.status === 'da_huy' ? 'Đã hủy' : 'Sắp diễn ra', color: item.status === 'da_hoc' ? 'green' : item.status === 'da_huy' ? 'red' : 'blue', canAttend } })
+  useEffect(() => { void load(); return () => { loadVersion.current += 1 } }, [load])
+  const todaySessions = dashboard.todaySessions.map((item) => { const canAttend = item.status !== 'da_huy' && new Date(item.startsAt.replace(' ', 'T')).getTime() <= now; const timing = sessionTiming(item.startsAt, item.endsAt, item.status, now); return { id: item.id, time: `${new Date(item.startsAt.replace(' ', 'T')).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}–${new Date(item.endsAt.replace(' ', 'T')).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`, name: item.className, room: item.roomCode, status: timing.label, color: timing.color, attendance: item.status === 'da_hoc' ? 'Đã điểm danh' : canAttend ? 'Chưa hoàn tất điểm danh' : null, canAttend } })
 
   const columns: ColumnsType<ClassRow> = [
     {
@@ -77,7 +83,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
       title: '',
       key: 'action',
       align: 'right',
-      render: (_, record) => <Button type="link" onClick={() => { sessionStorage.setItem(record.actionPage === 'teacher-attendance' ? 'teacher-attendance-class' : record.actionPage === 'teacher-grades' ? 'teacher-grades-class' : 'teacher-schedule-class', String(record.key)); onNavigate(record.actionPage) }}>{record.nextTask}<ArrowRight /></Button>,
+      render: (_, record) => <Button type="link" onClick={() => { if (record.actionPage === 'teacher-attendance') sessionStorage.removeItem('teacher-attendance-session'); sessionStorage.setItem(record.actionPage === 'teacher-attendance' ? 'teacher-attendance-class' : record.actionPage === 'teacher-grades' ? 'teacher-grades-class' : 'teacher-schedule-class', String(record.key)); onNavigate(record.actionPage) }}>{record.nextTask}<ArrowRight /></Button>,
     },
   ]
 
@@ -108,8 +114,8 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
                 <Flex className="teacher-session" align="center" gap={16} key={session.id} wrap>
                   <div className="teacher-session-time"><Clock weight="duotone" /><strong>{session.time}</strong></div>
                   <div className="teacher-session-info"><Typography.Text strong>{session.name}</Typography.Text><Typography.Text type="secondary"><MapPin />{session.room}</Typography.Text></div>
-                  <Tag color={session.color}>{session.status}</Tag>
-                  <Button disabled={!session.canAttend} onClick={() => { sessionStorage.setItem('teacher-attendance-session', String(session.id)); onNavigate('teacher-attendance') }}>{session.status === 'Đã hủy' ? 'Đã hủy' : session.canAttend ? 'Mở lớp' : 'Chưa đến giờ'}</Button>
+                  <Space orientation="vertical" size={2}><Tag color={session.color}>{session.status}</Tag>{session.attendance && <Typography.Text type="secondary">{session.attendance}</Typography.Text>}</Space>
+                  <Button disabled={!session.canAttend} onClick={() => { sessionStorage.removeItem('teacher-attendance-class'); sessionStorage.setItem('teacher-attendance-session', String(session.id)); onNavigate('teacher-attendance') }}>{session.status === 'Đã hủy' ? 'Đã hủy' : session.canAttend ? 'Mở điểm danh' : 'Chưa đến giờ'}</Button>
                 </Flex>
               ))}
               {!todaySessions.length && <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Hôm nay chưa có lịch dạy" />}
@@ -118,7 +124,7 @@ function TeacherDashboard({ onLogout, onNavigate, onNavigateHome }: TeacherDashb
         </Col>
 
         <Col xs={24} xl={9}>
-          <Card title="Việc cần hoàn tất" className="teacher-tasks-card"><button type="button" onClick={() => onNavigate('teacher-attendance')}><span className="teacher-task-icon danger"><ClipboardText weight="duotone" /></span><span><strong>Hoàn tất điểm danh</strong><small>{dashboard.attendanceDue} buổi đang chờ</small></span><Tag color={Number(dashboard.attendanceDue) ? 'red' : 'green'}>{Number(dashboard.attendanceDue) ? 'Cần xử lý' : 'Đã xong'}</Tag></button><button type="button" onClick={() => onNavigate('teacher-grades')}><span className="teacher-task-icon warning"><Exam weight="duotone" /></span><span><strong>Nhập điểm bốn kỹ năng</strong><small>Chọn lớp và kỳ thi</small></span><ArrowRight /></button><div className="teacher-task-done"><CheckCircle weight="fill" /><span><strong>Dữ liệu được lưu trên hệ thống</strong></span></div></Card>
+          <Card title="Việc cần hoàn tất" className="teacher-tasks-card"><button type="button" onClick={() => { sessionStorage.removeItem('teacher-attendance-session'); sessionStorage.removeItem('teacher-attendance-class'); onNavigate('teacher-attendance') }}><span className="teacher-task-icon danger"><ClipboardText weight="duotone" /></span><span><strong>Hoàn tất điểm danh</strong><small>{dashboard.attendanceDue} buổi đang chờ · Ưu tiên buổi còn thiếu</small></span><Tag color={Number(dashboard.attendanceDue) ? 'red' : 'green'}>{Number(dashboard.attendanceDue) ? 'Cần xử lý' : 'Đã xong'}</Tag></button><button type="button" onClick={() => onNavigate('teacher-grades')}><span className="teacher-task-icon warning"><Exam weight="duotone" /></span><span><strong>Nhập điểm bốn kỹ năng</strong><small>Chọn lớp và kỳ thi</small></span><ArrowRight /></button><div className="teacher-task-done"><CheckCircle weight="fill" /><span><strong>Dữ liệu được lưu trên hệ thống</strong></span></div></Card>
         </Col>
       </Row>
 

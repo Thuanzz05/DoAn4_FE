@@ -52,6 +52,16 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
   const [dirty, setDirty] = useState(false)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+  const [classesLoading, setClassesLoading] = useState(true)
+  const [examsLoading, setExamsLoading] = useState(false)
+  const [classesError, setClassesError] = useState('')
+  const [examsError, setExamsError] = useState('')
+  const [resultsError, setResultsError] = useState('')
+  const [classesRetry, setClassesRetry] = useState(0)
+  const [examsRetry, setExamsRetry] = useState(0)
+  const [resultsRetry, setResultsRetry] = useState(0)
+  const [requestedClass] = useState(() => Number(sessionStorage.getItem('teacher-grades-class')))
   const [revision, setRevision] = useState(0)
   const [now, setNow] = useState(Date.now)
   const [creatingExam, setCreatingExam] = useState(false)
@@ -60,17 +70,35 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
   const [examForm] = Form.useForm<ExamForm>()
   const [messageApi, messageContext] = message.useMessage()
   const [modalApi, modalContext] = Modal.useModal()
-  useEffect(() => { api<ClassApi[]>('/teacher/classes').then((rows) => { const requested = Number(sessionStorage.getItem('teacher-grades-class')); sessionStorage.removeItem('teacher-grades-class'); setClasses(rows); setClassId((current) => current ?? (rows.some((row) => row.id === requested) ? requested : rows[0]?.id)) }).catch((error) => messageApi.error(errorMessage(error))) }, [messageApi])
+  const dataBlocked = loading || classesLoading || examsLoading || Boolean(classesError || examsError || resultsError)
+  const blocked = dataBlocked || saving || examSubmitting
   useEffect(() => {
-    if (!classId) return
     let active = true
-    api<ExamApi[]>(`/teacher/classes/${classId}/exams`).then((rows) => { if (active) { setExams(rows); setExamId(rows[0]?.id) } }).catch((error) => { if (active) messageApi.error(errorMessage(error)) })
+    setClassesLoading(true); setClassesError('')
+    api<ClassApi[]>('/teacher/classes').then((rows) => {
+      if (!active) return
+      sessionStorage.removeItem('teacher-grades-class'); setClasses(rows)
+      setClassId((current) => rows.some((row) => row.id === current) ? current : rows.some((row) => row.id === requestedClass) ? requestedClass : rows[0]?.id)
+      setExamsRetry((value) => value + 1)
+    }).catch((error) => { if (active) setClassesError(errorMessage(error)) })
+      .finally(() => { if (active) setClassesLoading(false) })
     return () => { active = false }
-  }, [classId, messageApi])
+  }, [requestedClass, classesRetry])
   useEffect(() => {
-    if (!examId) { setStudents([]); setScores({}); setSaved(false); setDirty(false); setLoading(false); return }
+    if (!classId) { setExams([]); setExamId(undefined); setExamsLoading(false); setExamsError(''); return }
     let active = true
-    setLoading(true); setSaved(false)
+    setExamsLoading(true); setExamsError(''); setExams([])
+    api<ExamApi[]>(`/teacher/classes/${classId}/exams`).then((rows) => { if (active) {
+      setExams(rows); setExamId((current) => rows.some((row) => row.id === current) ? current : rows[0]?.id)
+      setResultsRetry((value) => value + 1)
+    } }).catch((error) => { if (active) setExamsError(errorMessage(error)) })
+      .finally(() => { if (active) setExamsLoading(false) })
+    return () => { active = false }
+  }, [classId, examsRetry])
+  useEffect(() => {
+    if (!examId) { setStudents([]); setScores({}); setSaved(false); setDirty(false); setLoading(false); setResultsError(''); return }
+    let active = true
+    setLoading(true); setSaved(false); setResultsError(''); setStudents([]); setScores({}); setDirty(false)
     api<ResultApi>(`/teacher/exams/${examId}/results`).then((result) => {
       if (!active) return
       setExams((current) => current.map((item) => item.id === examId ? { ...item, ...result.exam } : item))
@@ -78,13 +106,14 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
       setScores(Object.fromEntries(result.students.map((item) => [item.enrollmentId, { listening: item.listening, speaking: item.speaking, reading: item.reading, writing: item.writing }])))
       setSaved(result.students.some((item) => [item.listening, item.speaking, item.reading, item.writing].some((value) => value !== null)))
       setDirty(false)
-    }).catch((error) => { if (active) { setStudents([]); setScores({}); messageApi.error(errorMessage(error)) } }).finally(() => { if (active) setLoading(false) })
+    }).catch((error) => { if (active) setResultsError(errorMessage(error)) }).finally(() => { if (active) setLoading(false) })
     return () => { active = false }
-  }, [examId, messageApi])
+  }, [examId, resultsRetry])
   useEffect(() => {
-    if (!dirty && !examSubmitting) return
+    if (!dirty && !examSubmitting && !saving) return
     const preventUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = '' }
     const confirmHistoryNavigation = (event: Event) => {
+      if (savingRef.current) { event.preventDefault(); messageApi.warning('Đang lưu bảng điểm, vui lòng chờ.'); return }
       if (examSubmittingRef.current) { event.preventDefault(); messageApi.warning('Đang tạo kỳ thi, vui lòng chờ.'); return }
       if (!window.confirm('Bảng điểm có thay đổi chưa lưu. Bạn có muốn rời trang?')) event.preventDefault()
       else setDirty(false)
@@ -95,7 +124,7 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
       window.removeEventListener('beforeunload', preventUnload)
       window.removeEventListener('app:history-navigation', confirmHistoryNavigation)
     }
-  }, [dirty, examSubmitting, messageApi])
+  }, [dirty, examSubmitting, saving, messageApi])
 
   const results = useMemo(() => students.map((student) => averageScore(scores[student.id] ?? emptyScore())), [scores, students])
   const completed = results.filter((value) => value !== null).length
@@ -113,20 +142,20 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
   }, [deadline, now])
 
   const updateScore = (studentId: number, skill: Skill, value: number | null) => {
-    if (locked || loading || saving || examSubmittingRef.current || students.find((item) => item.id === studentId)?.certificateId || students.find((item) => item.id === studentId)?.eligible === false) return
+    if (locked || blocked || savingRef.current || examSubmittingRef.current || students.find((item) => item.id === studentId)?.certificateId || students.find((item) => item.id === studentId)?.eligible === false) return
     setScores((current) => ({ ...current, [studentId]: { ...(current[studentId] ?? emptyScore()), [skill]: value } }))
     setDirty(true)
   }
 
   const confirmDiscard = (action: () => void) => {
-    if (saving) { messageApi.warning('Đang lưu bảng điểm, vui lòng chờ.'); return }
+    if (savingRef.current) { messageApi.warning('Đang lưu bảng điểm, vui lòng chờ.'); return }
     if (examSubmittingRef.current) { messageApi.warning('Đang tạo kỳ thi, vui lòng chờ.'); return }
     if (!dirty) { action(); return }
     modalApi.confirm({ title: 'Bỏ thay đổi chưa lưu?', content: 'Các điểm đang nhập sẽ bị mất.', okText: 'Bỏ thay đổi', cancelText: 'Ở lại', okButtonProps: { danger: true }, onOk: () => { setDirty(false); action() } })
   }
 
   const createExam = async (values: ExamForm) => {
-    if (!classId || examSubmittingRef.current) return
+    if (!classId || blocked || savingRef.current || examSubmittingRef.current || selectedClass?.examLocked) return
     if (dirty) { messageApi.warning('Hãy lưu hoặc bỏ thay đổi bảng điểm trước khi tạo kỳ thi mới.'); return }
     examSubmittingRef.current = true
     setExamSubmitting(true)
@@ -138,19 +167,20 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
   }
 
   const persist = async () => {
-    if (!examId || !dirty || loading || saving || locked || examSubmittingRef.current) return
+    if (!examId || !dirty || blocked || savingRef.current || locked || examSubmittingRef.current) return
     if (deadline !== null && deadline <= Date.now()) { setNow(Date.now()); messageApi.warning('Đã hết hạn chỉnh sửa điểm.'); return }
-    setSaving(true)
+    savingRef.current = true; setSaving(true)
     try {
       await api(`/teacher/exams/${examId}/results`, json('PUT', { items: students.filter((student) => !student.certificateId && student.eligible).map((student) => ({ enrollmentId: student.id, ...(scores[student.id] ?? emptyScore()) })) }))
       setSaved(true); setDirty(false); messageApi.success(completed === students.length ? 'Đã lưu bảng điểm đầy đủ.' : 'Đã lưu điểm đang nhập. Điểm còn trống chưa được tính là 0.')
       setRevision((value) => value + 1)
+      setResultsRetry((value) => value + 1)
     } catch (error) { messageApi.error(errorMessage(error)) }
-    finally { setSaving(false) }
+    finally { savingRef.current = false; setSaving(false) }
   }
 
   const saveGrades = () => {
-    if (!dirty || loading || saving || examSubmittingRef.current) return
+    if (!dirty || blocked || savingRef.current || examSubmittingRef.current) return
     if (!saved) {
       void persist()
       return
@@ -160,7 +190,7 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
 
   const scoreColumn = (title: string, skill: Skill): ColumnsType<StudentRow>[number] => ({
     title, key: skill, width: 116, align: 'center',
-    render: (_, student) => <InputNumber aria-label={`${title} - ${student.name}`} disabled={locked || loading || saving || examSubmitting || Boolean(student.certificateId) || !student.eligible} min={0} max={10} step={0.5} precision={2} value={(scores[student.id] ?? emptyScore())[skill]} onChange={(value) => updateScore(student.id, skill, value)} />,
+    render: (_, student) => <InputNumber aria-label={`${title} - ${student.name}`} disabled={locked || blocked || Boolean(student.certificateId) || !student.eligible} min={0} max={10} step={0.5} precision={2} value={(scores[student.id] ?? emptyScore())[skill]} onChange={(value) => updateScore(student.id, skill, value)} />,
   })
 
   const columns: ColumnsType<StudentRow> = [
@@ -190,38 +220,41 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
         kicker="Kết quả học tập"
         title="Nhập điểm thi"
         description="Có thể lưu điểm từng phần. Chỉ tính trung bình khi đủ bốn kỹ năng; điểm trống khác điểm 0."
-        actions={<Space wrap><Button icon={<Plus />} disabled={!classId || selectedClass?.examLocked || saving || loading || examSubmitting || dirty} onClick={() => { examForm.resetFields(); setCreatingExam(true) }}>Tạo kỳ thi</Button><Button icon={<DownloadSimple />} disabled={!students.length || loading} onClick={() => downloadCsv([['Mã học viên', 'Họ tên', 'Nghe', 'Nói', 'Đọc', 'Viết'], ...students.map((item) => [item.code, item.name, ...Object.values(scores[item.id] ?? emptyScore()).map((value) => value ?? '')])], 'bang-diem-ky-thi.csv')}>Xuất CSV kỳ này</Button></Space>}
+        actions={<Space wrap><Button loading={classesLoading} disabled={saving || examSubmitting} onClick={() => confirmDiscard(() => setClassesRetry((value) => value + 1))}>Tải lại lớp học</Button><Button icon={<Plus />} disabled={!classId || selectedClass?.examLocked || blocked || dirty} onClick={() => { examForm.resetFields(); setCreatingExam(true) }}>Tạo kỳ thi</Button><Button icon={<DownloadSimple />} disabled={!students.length || blocked} onClick={() => downloadCsv([['Mã học viên', 'Họ tên', 'Nghe', 'Nói', 'Đọc', 'Viết'], ...students.map((item) => [item.code, item.name, ...Object.values(scores[item.id] ?? emptyScore()).map((value) => value ?? '')])], 'bang-diem-ky-thi.csv')}>Xuất CSV kỳ này</Button></Space>}
       />
 
-      <Alert className="teacher-grades-alert" type={locked ? 'warning' : 'info'} showIcon title={currentExam?.locked ? 'Bảng điểm không được chỉnh sửa' : deadlinePassed ? 'Đã hết hạn chỉnh sửa điểm' : 'Thời hạn nhập điểm'} description={currentExam?.locked ? 'Lớp học không còn cho phép cập nhật bảng điểm.' : `${currentExam?.deadline ? `Hạn chỉnh sửa: ${new Date(currentExam.deadline.replace(' ', 'T')).toLocaleString('vi-VN')}.` : 'Kỳ thi chưa đặt hạn sửa điểm.'} ${selectedClass?.examLocked ? 'Danh sách kỳ thi đã chốt; chỉ sửa điểm học viên chưa được duyệt chứng chỉ.' : 'Điểm học viên đã được duyệt chứng chỉ sẽ bị khóa.'}`} />
+      {!dataBlocked && currentExam && <Alert className="teacher-grades-alert" type={locked ? 'warning' : 'info'} showIcon title={currentExam?.locked ? 'Bảng điểm không được chỉnh sửa' : deadlinePassed ? 'Đã hết hạn chỉnh sửa điểm' : 'Thông tin kỳ thi'} description={currentExam?.locked ? 'Lớp học không còn cho phép cập nhật bảng điểm.' : `Ngày thi: ${currentExam.examDate ? new Date(`${currentExam.examDate.slice(0, 10)}T00:00:00`).toLocaleDateString('vi-VN') : 'Chưa đặt'}. ${currentExam?.deadline ? `Hạn chỉnh sửa: ${new Date(currentExam.deadline.replace(' ', 'T')).toLocaleString('vi-VN')}.` : 'Kỳ thi chưa đặt hạn sửa điểm.'} ${selectedClass?.examLocked ? 'Danh sách kỳ thi đã chốt; chỉ sửa điểm học viên chưa được duyệt chứng chỉ.' : 'Điểm học viên đã được duyệt chứng chỉ sẽ bị khóa.'}`} />}
+      {classesError && <Alert type="error" showIcon title="Chưa tải được danh sách lớp" description={classesError} action={<Button disabled={saving || examSubmitting} onClick={() => confirmDiscard(() => setClassesRetry((value) => value + 1))}>Thử lại lớp học</Button>} />}
+      {examsError && <Alert type="error" showIcon title="Chưa tải được kỳ thi" description={examsError} action={<Button disabled={saving || examSubmitting} onClick={() => confirmDiscard(() => setExamsRetry((value) => value + 1))}>Thử lại kỳ thi</Button>} />}
+      {resultsError && <Alert type="error" showIcon title="Chưa tải được bảng điểm" description={resultsError} action={<Button disabled={saving || examSubmitting} onClick={() => confirmDiscard(() => setResultsRetry((value) => value + 1))}>Thử lại bảng điểm</Button>} />}
 
       <Card className="grades-filter-card">
         <Flex align="flex-end" justify="space-between" gap={18} wrap>
           <Space size={14} wrap>
-            <label><Typography.Text>Lớp học</Typography.Text><Select disabled={saving || examSubmitting} value={classId} onChange={(value) => confirmDiscard(() => { setExamId(undefined); setExams([]); setClassId(value) })} options={classes.map((item) => ({ value: item.id, label: `${item.name} · ${item.code}` }))} /></label>
-            <label><Typography.Text>Kỳ đánh giá</Typography.Text><Select disabled={saving || examSubmitting} value={examId} onChange={(value) => confirmDiscard(() => setExamId(value))} options={exams.map((item) => ({ value: item.id, label: item.name }))} /></label>
+            <label><Typography.Text>Lớp học</Typography.Text><Select loading={classesLoading} disabled={saving || examSubmitting || classesLoading || Boolean(classesError)} value={classId} onChange={(value) => confirmDiscard(() => { setExamId(undefined); setExams([]); setClassId(value) })} options={classes.map((item) => ({ value: item.id, label: `${item.name} · ${item.code}` }))} /></label>
+            <label><Typography.Text>Kỳ đánh giá</Typography.Text><Select loading={examsLoading} disabled={saving || examSubmitting || classesLoading || examsLoading || Boolean(classesError || examsError)} value={examId} onChange={(value) => confirmDiscard(() => setExamId(value))} options={exams.map((item) => ({ value: item.id, label: `${item.name}${item.examDate ? ` · ${new Date(`${item.examDate.slice(0, 10)}T00:00:00`).toLocaleDateString('vi-VN')}` : ' · Chưa đặt ngày thi'}` }))} /></label>
           </Space>
-          <Tag color={dirty ? 'orange' : saved ? 'green' : 'default'}>{dirty ? 'Có thay đổi chưa lưu' : saved ? 'Đã lưu' : 'Chưa nhập điểm'}</Tag>
+          <Space wrap><Button loading={examsLoading} disabled={!classId || saving || examSubmitting || classesLoading || Boolean(classesError)} onClick={() => confirmDiscard(() => setExamsRetry((value) => value + 1))}>Tải lại kỳ thi</Button><Tag color={dirty ? 'orange' : saved ? 'green' : 'default'}>{dataBlocked ? classesError || examsError || resultsError ? 'Chưa tải được dữ liệu' : 'Đang tải dữ liệu' : dirty ? 'Có thay đổi chưa lưu' : saved ? 'Đã lưu' : 'Chưa nhập điểm'}</Tag></Space>
         </Flex>
       </Card>
 
-      <AdminSummary items={[
+      {!dataBlocked && <AdminSummary items={[
         { label: 'Sĩ số', value: students.length, detail: 'Học viên trong danh sách thi', icon: <Student weight="duotone" /> },
         { label: 'Đã nhập đủ', value: completed, detail: `${students.length - completed} học viên còn thiếu điểm`, icon: <PencilSimple weight="duotone" /> },
         { label: 'Điểm trung bình', value: academicScore(classAverage), detail: 'Tính trên học viên đã đủ điểm', icon: <Exam weight="duotone" /> },
         { label: 'Đạt yêu cầu', value: passed, detail: 'Điểm trung bình từ 5,0', icon: <CheckCircle weight="duotone" />, tone: 'success' },
-      ]} />
+      ]} />}
 
       <Card
         className="admin-table-card grades-table-card"
         title="Bảng điểm bốn kỹ năng"
-        extra={<Button type="primary" loading={saving} disabled={!examId || !students.length || !dirty || loading || saving || examSubmitting || locked || students.every((student) => Boolean(student.certificateId) || !student.eligible)} icon={completed < students.length ? <WarningCircle /> : <CheckCircle />} onClick={saveGrades}>Lưu bảng điểm</Button>}
+        extra={<Space><Button loading={loading} disabled={!examId || saving || examSubmitting || classesLoading || examsLoading || Boolean(classesError || examsError)} onClick={() => confirmDiscard(() => setResultsRetry((value) => value + 1))}>Tải lại bảng điểm</Button><Button type="primary" loading={saving} disabled={!examId || !students.length || !dirty || blocked || locked || students.every((student) => Boolean(student.certificateId) || !student.eligible)} icon={completed < students.length ? <WarningCircle /> : <CheckCircle />} onClick={saveGrades}>Lưu bảng điểm</Button></Space>}
       >
-        <Table loading={loading} columns={columns} dataSource={students} rowKey="id" pagination={false} scroll={{ x: 1080, y: 540 }} />
+        <Table loading={loading || classesLoading || examsLoading} columns={columns} dataSource={classesError || examsError || resultsError ? [] : students} rowKey="id" pagination={false} scroll={{ x: 1080, y: 540 }} />
       </Card>
-      {classId && <AcademicDetails classId={classId} teacher section="grades" revision={revision} />}
+      {!classesLoading && !classesError && classId && <AcademicDetails classId={classId} teacher section="grades" revision={revision} />}
       <Modal title="Tạo kỳ thi" open={creatingExam} onCancel={() => { if (!examSubmittingRef.current) setCreatingExam(false) }} onOk={() => examForm.submit()} confirmLoading={examSubmitting} cancelButtonProps={{ disabled: examSubmitting }} closable={!examSubmitting} keyboard={!examSubmitting} maskClosable={!examSubmitting} okText="Tạo kỳ thi" destroyOnHidden>
-        <Form form={examForm} layout="vertical" onFinish={createExam} style={{ marginTop: 20 }}>
+        <Form form={examForm} layout="vertical" onFinish={createExam} disabled={examSubmitting || dataBlocked} style={{ marginTop: 20 }}>
           <Form.Item label="Lớp học"><Input value={classes.find((item) => item.id === classId)?.name ?? ''} disabled /></Form.Item>
           <Form.Item name="name" label="Tên kỳ thi" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập tên kỳ thi.' }]}><Input placeholder="VD: Thi cuối khóa" /></Form.Item>
           <Form.Item name="examDate" label="Ngày thi"><Input type="date" /></Form.Item>
