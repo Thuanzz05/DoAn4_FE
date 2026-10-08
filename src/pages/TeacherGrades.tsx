@@ -138,7 +138,7 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
   }
 
   const persist = async () => {
-    if (!examId || loading || saving || locked || examSubmittingRef.current) return
+    if (!examId || !dirty || loading || saving || locked || examSubmittingRef.current) return
     if (deadline !== null && deadline <= Date.now()) { setNow(Date.now()); messageApi.warning('Đã hết hạn chỉnh sửa điểm.'); return }
     setSaving(true)
     try {
@@ -150,6 +150,7 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
   }
 
   const saveGrades = () => {
+    if (!dirty || loading || saving || examSubmittingRef.current) return
     if (!saved) {
       void persist()
       return
@@ -214,7 +215,7 @@ function TeacherGrades({ onLogout, onNavigate, onNavigateHome }: TeacherGradesPr
       <Card
         className="admin-table-card grades-table-card"
         title="Bảng điểm bốn kỹ năng"
-        extra={<Button type="primary" loading={saving} disabled={!examId || !students.length || loading || locked || students.every((student) => Boolean(student.certificateId) || !student.eligible)} icon={completed < students.length ? <WarningCircle /> : <CheckCircle />} onClick={saveGrades}>Lưu bảng điểm</Button>}
+        extra={<Button type="primary" loading={saving} disabled={!examId || !students.length || !dirty || loading || saving || examSubmitting || locked || students.every((student) => Boolean(student.certificateId) || !student.eligible)} icon={completed < students.length ? <WarningCircle /> : <CheckCircle />} onClick={saveGrades}>Lưu bảng điểm</Button>}
       >
         <Table loading={loading} columns={columns} dataSource={students} rowKey="id" pagination={false} scroll={{ x: 1080, y: 540 }} />
       </Card>

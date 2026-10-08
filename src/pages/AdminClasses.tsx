@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarBlank, CaretRight, CheckCircle, MagnifyingGlass, MapPin, PencilSimple, Play, Plus, Student, Trash, UsersThree, XCircle } from '@phosphor-icons/react'
 import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Progress, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd'
 import type { TableProps } from 'antd'
@@ -30,6 +30,8 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
   const [rooms, setRooms] = useState<RoomOption[]>([])
   const [classSessions, setClassSessions] = useState<SessionApi[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
+  const sessionsRequestId = useRef(0)
+  const selectedClassId = useRef<number | null>(null)
   const [sessionEditing, setSessionEditing] = useState<SessionApi | null>(null)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'Tất cả' | ClassStatus>('Tất cả')
@@ -53,27 +55,40 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load() }, [])
+  useEffect(() => () => { sessionsRequestId.current += 1; selectedClassId.current = null }, [])
 
-  const loadSessions = async (classId: number) => {
-    setSessionsLoading(true)
-    try { setClassSessions(await api<SessionApi[]>(`/classes/${classId}/sessions`)) }
-    catch (error) { messageApi.error(errorMessage(error)) }
-    finally { setSessionsLoading(false) }
+  const closeDetails = () => {
+    selectedClassId.current = null; sessionsRequestId.current += 1
+    setSelected(null); setClassSessions([]); setSessionsLoading(false); setSessionEditing(null)
   }
-  const openDetails = (item: ClassRecord) => { setSelected(item); void loadSessions(item.id) }
+  const loadSessions = async (classId: number) => {
+    if (classId !== selectedClassId.current) return
+    const requestId = ++sessionsRequestId.current
+    setClassSessions([]); setSessionsLoading(true)
+    try {
+      const rows = await api<SessionApi[]>(`/classes/${classId}/sessions`)
+      if (requestId === sessionsRequestId.current) setClassSessions(rows)
+    } catch (error) { if (requestId === sessionsRequestId.current) messageApi.error(errorMessage(error)) }
+    finally { if (requestId === sessionsRequestId.current) setSessionsLoading(false) }
+  }
+  const openDetails = (item: ClassRecord) => {
+    closeDetails(); selectedClassId.current = item.id; setSelected(item); void loadSessions(item.id)
+  }
   const openSessionEdit = (item: SessionApi) => {
+    if (item.classId !== selectedClassId.current) return
     sessionForm.setFieldsValue({ date: item.startsAt.slice(0, 10), startTime: item.startsAt.slice(11, 16), endTime: item.endsAt.slice(11, 16), teacherId: item.teacherId, roomId: item.roomId })
     setSessionEditing(item)
   }
   const saveSession = async (values: SessionForm) => {
-    if (!sessionEditing || !selected) return
+    if (!sessionEditing || !selected || sessionEditing.classId !== selectedClassId.current) return
     try {
       await api(`/sessions/${sessionEditing.id}`, json('PATCH', values))
-      setSessionEditing(null); await load(); await loadSessions(selected.id); messageApi.success(sessionEditing.status === 'da_huy' ? 'Đã xếp lịch học bù.' : 'Đã cập nhật buổi học.')
+      if (sessionEditing.classId === selectedClassId.current) setSessionEditing(null)
+      await load(); await loadSessions(selected.id); messageApi.success(sessionEditing.status === 'da_huy' ? 'Đã xếp lịch học bù.' : 'Đã cập nhật buổi học.')
     } catch (error) { messageApi.error(errorMessage(error)) }
   }
   const cancelSession = (item: SessionApi) => {
-    if (!selected) return
+    if (!selected || item.classId !== selectedClassId.current) return
     modalApi.confirm({
       title: 'Hủy buổi học?',
       content: `${new Date(item.startsAt.replace(' ', 'T')).toLocaleString('vi-VN')} · ${item.roomCode}. Bạn có thể xếp lịch bù sau.`,
@@ -86,7 +101,7 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
   }
 
   const openNew = () => { form.resetFields(); form.setFieldsValue({ courseId: courses[0]?.id, sessions: courses[0]?.sessions ?? 24, capacity: 20 }); setEditing('new') }
-  const openEdit = (item: ClassRecord) => { form.setFieldsValue(item); setSelected(null); setEditing(item) }
+  const openEdit = (item: ClassRecord) => { form.setFieldsValue(item); closeDetails(); setEditing(item) }
   const save = async (values: ClassForm) => {
     const code = values.code.trim().toUpperCase()
     if (classes.some((item) => item.code === code && item.code !== (typeof editing === 'object' && editing ? editing.code : ''))) {
@@ -103,7 +118,7 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
   const cancel = (item: ClassRecord) => {
     if (item.enrolled > 0) { messageApi.warning('Lớp đang có học viên. Hãy chuyển lớp cho học viên trước khi hủy.'); return }
     if (item.status === 'Đã kết thúc' || item.status === 'Đã hủy') return
-    modalApi.confirm({ title: 'Hủy lớp học?', content: `${item.name} · ${item.code}`, okText: 'Hủy lớp', okButtonProps: { danger: true }, onOk: async () => { try { await api(`/classes/${item.id}/cancel`, json('POST')); setSelected(null); await load(); messageApi.success('Đã hủy lớp học.') } catch (error) { messageApi.error(errorMessage(error)) } } })
+    modalApi.confirm({ title: 'Hủy lớp học?', content: `${item.name} · ${item.code}`, okText: 'Hủy lớp', okButtonProps: { danger: true }, onOk: async () => { try { await api(`/classes/${item.id}/cancel`, json('POST')); closeDetails(); await load(); messageApi.success('Đã hủy lớp học.') } catch (error) { messageApi.error(errorMessage(error)) } } })
   }
   const generateSessions = (item: ClassRecord) => {
     modalApi.confirm({
@@ -113,7 +128,7 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
       onOk: async () => {
         try {
           const result = await api<{ created: number }>(`/classes/${item.id}/generate-sessions`, json('POST'))
-          await load(); setSelected(null); messageApi.success(`Đã tạo ${result.created} buổi học.`)
+          await load(); closeDetails(); messageApi.success(`Đã tạo ${result.created} buổi học.`)
         } catch (error) { messageApi.error(errorMessage(error)) }
       },
     })
@@ -129,7 +144,7 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
       onOk: async () => {
         try {
           await api(`/classes/${item.id}/${action}`, json('POST'))
-          setSelected(null); await load(); messageApi.success(completing ? 'Đã kết thúc lớp học.' : 'Đã bắt đầu lớp học.')
+          closeDetails(); await load(); messageApi.success(completing ? 'Đã kết thúc lớp học.' : 'Đã bắt đầu lớp học.')
         } catch (error) { messageApi.error(errorMessage(error)) }
       },
     })
@@ -165,7 +180,7 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
       { label: 'Phòng đang sử dụng', value: new Set(classes.filter((item) => item.status === 'Đang học').map((item) => item.room)).size, detail: 'Theo lịch các lớp đang học', icon: <MapPin weight="duotone" /> },
     ]} />
     <Card className="admin-table-card" title="Danh sách lớp học" extra={<Space wrap><Input allowClear prefix={<MagnifyingGlass />} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tên, mã, khóa hoặc giáo viên" /><Select value={status} onChange={setStatus} options={['Tất cả', 'Đang học', 'Sắp khai giảng', 'Đã kết thúc', 'Đã hủy'].map((value) => ({ value, label: value }))} /></Space>}><Table rowKey="code" columns={columns} dataSource={data} scroll={{ x: 1000 }} pagination={{ pageSize: 6, showTotal: (total) => `${total} lớp học` }} locale={{ emptyText: 'Không tìm thấy lớp phù hợp' }} /></Card>
-    <Drawer size={760} title="Thông tin lớp học" open={Boolean(selected)} onClose={() => { setSelected(null); setClassSessions([]) }}>
+    <Drawer size={760} title="Thông tin lớp học" open={Boolean(selected)} onClose={closeDetails}>
       {selected && <>
         <Flex align="center" gap={14}><Avatar size={54} shape="square">{selected.name.slice(0, 2).toUpperCase()}</Avatar><div><Typography.Title className="admin-drawer-title" level={3}>{selected.name}</Typography.Title><Typography.Text type="secondary">{selected.code}</Typography.Text></div></Flex>
         <Tabs style={{ marginTop: 18 }} items={[

@@ -14,6 +14,7 @@ import StudentLayout, { type StudentPage } from './StudentLayout'
 import './StudentResults.css'
 import { api, errorMessage } from '../api'
 import { enrollmentLabels } from './enrollmentLabels'
+import { academicScore } from '../academicScore'
 
 type StudentResultsProps = {
   onLogout: () => void
@@ -26,9 +27,9 @@ type Attendance = { key: string; date: string; session: string; status: 'Có m�
 type ExamResult = { examId: number; enrollmentId: number; examName: string; examDate: string | null; classId: number; classCode: string; className: string; listening: number | null; speaking: number | null; reading: number | null; writing: number | null; average: number | null }
 type ResultApi = { exams: ExamResult[]; attendance: Array<{ sessionId: number; enrollmentId: number; classId: number; className: string; startsAt: string; status: 'co_mat' | 'di_muon' | 'vang' | null; note: string | null }> }
 type Eligibility = { enrollmentId: number; enrollmentStatus: string; classId: number | null; classCode: string | null; className: string | null; courseName: string; attendance: number; expectedAttendance: number; recordedAttendance: number; average: number | null; requiredExams: number; completedExams: number; paid: boolean; eligible: boolean; certificateStatus: 'da_duyet' | 'da_cap' | null; ineligibleReasons: string[] }
-const scoreLabel = (score: number | null) => score === null ? '—' : Number(score).toFixed(1)
+const scoreLabel = academicScore
 const attendanceColor = { 'Có mặt': 'green', 'Đi muộn': 'orange', Vắng: 'red', 'Chưa điểm danh': 'default' }
-if (import.meta.env.DEV && (scoreLabel(null) !== '—' || scoreLabel(0) !== '0.0')) throw new Error('Missing score must differ from zero')
+if (import.meta.env.DEV && (scoreLabel(null) !== '—' || scoreLabel(0) !== '0.00' || Number(scoreLabel(4.9975)) >= 5)) throw new Error('Missing and failing scores must retain their meaning')
 
 const scoreColumns: ColumnsType<Score> = [
   { title: 'Kỹ năng', dataIndex: 'skill', render: (skill) => <Typography.Text strong>{skill}</Typography.Text> },
@@ -78,7 +79,7 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
   const rate = Number(condition?.attendance ?? 0)
   const average = exam?.average === null || !exam ? null : Number(exam.average)
   const gradeTab = <div className="student-result-panel">
-    <Alert type={average !== null && average >= 5 ? 'success' : 'info'} showIcon title={exam ? `${exam.examName} · ${exam.className}` : 'Lớp chưa có kỳ thi'} description={average === null ? 'Điểm trung bình chỉ được tính khi đủ điểm cả bốn kỹ năng. Dấu — là chưa có điểm, không phải điểm 0.' : `Điểm trung bình kỳ thi là ${average.toFixed(1)}/10.`} />
+    <Alert type={average !== null && average >= 5 ? 'success' : 'info'} showIcon title={exam ? `${exam.examName} · ${exam.className}` : 'Lớp chưa có kỳ thi'} description={average === null ? 'Điểm trung bình chỉ được tính khi đủ điểm cả bốn kỹ năng. Dấu — là chưa có điểm, không phải điểm 0.' : `Điểm trung bình kỳ thi là ${scoreLabel(average)}/10.`} />
     <Row gutter={[14, 14]} className="student-skill-cards">
       {scores.map((item) => <Col xs={12} lg={6} key={item.key}><Card size="small"><Flex justify="space-between" align="center"><span>{item.skill}</span><strong>{scoreLabel(item.score)}</strong></Flex>{item.score !== null ? <Progress percent={Number(item.score) * 10} showInfo={false} strokeColor="#397359" /> : <Typography.Text type="secondary">Chưa có điểm</Typography.Text>}</Card></Col>)}
     </Row>
@@ -102,7 +103,7 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
       <div className="student-condition-list">
         <div><CheckCircle weight="fill" /><span><strong>Hoàn thành lớp học</strong><small>Trạng thái được trung tâm xác nhận khi kết thúc lớp.</small></span><Tag color={condition?.enrollmentStatus === 'hoan_thanh' ? 'green' : 'red'}>{condition?.enrollmentStatus === 'hoan_thanh' ? 'Đạt' : 'Chưa đạt'}</Tag></div>
         <div><CheckCircle weight="fill" /><span><strong>Chuyên cần từ 80%, đủ dữ liệu điểm danh</strong><small>Hiện tại: {expectedAttendance ? `${rate.toFixed(1)}%` : 'Chưa có'} · {recordedAttendance}/{expectedAttendance} buổi được ghi nhận</small></span><Tag color={expectedAttendance > 0 && recordedAttendance === expectedAttendance && rate >= 80 ? 'green' : 'red'}>{expectedAttendance > 0 && recordedAttendance === expectedAttendance && rate >= 80 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
-        <div><CheckCircle weight="fill" /><span><strong>Điểm trung bình từ 5,0</strong><small>Hiện tại: {condition?.average === null || !condition ? 'Chưa có' : Number(condition.average).toFixed(1)}</small></span><Tag color={condition?.average !== null && Number(condition?.average ?? 0) >= 5 ? 'green' : 'red'}>{condition?.average !== null && Number(condition?.average ?? 0) >= 5 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
+        <div><CheckCircle weight="fill" /><span><strong>Điểm trung bình từ 5,0</strong><small>Hiện tại: {condition?.average === null || !condition ? 'Chưa có' : scoreLabel(condition.average)}</small></span><Tag color={condition?.average !== null && Number(condition?.average ?? 0) >= 5 ? 'green' : 'red'}>{condition?.average !== null && Number(condition?.average ?? 0) >= 5 ? 'Đạt' : 'Chưa đạt'}</Tag></div>
         <div><CheckCircle weight="fill" /><span><strong>Hoàn thành tất cả kỳ thi</strong><small>Hiện tại: {condition?.completedExams ?? 0}/{condition?.requiredExams ?? 0} kỳ thi</small></span><Tag color={condition && condition.requiredExams > 0 && condition.completedExams === condition.requiredExams ? 'green' : 'red'}>{condition && condition.requiredExams > 0 && condition.completedExams === condition.requiredExams ? 'Đạt' : 'Chưa đạt'}</Tag></div>
         <div className={condition?.paid ? '' : 'blocked'}><Receipt weight="fill" /><span><strong>Hoàn tất học phí của ghi danh này</strong></span><Tag color={condition?.paid ? 'green' : 'red'}>{condition?.paid ? 'Đạt' : 'Chưa đạt'}</Tag></div>
       </div>

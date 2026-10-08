@@ -1,4 +1,4 @@
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   UserCircle,
 } from '@phosphor-icons/react'
-import { Alert, Input, Modal, Space } from 'antd'
+import { Alert, Button, Input, Modal, Space, Typography } from 'antd'
 import heroImage from '../assets/language-center-hero.png'
 import { api, errorMessage, json, saveSession, type AuthSession } from '../api'
 import GoogleIdentityButton from '../GoogleIdentityButton'
@@ -33,6 +33,16 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
   const [newPassword, setNewPassword] = useState('')
   const [devCode, setDevCode] = useState('')
   const [forgotError, setForgotError] = useState('')
+  const [resendSeconds, setResendSeconds] = useState(0)
+  const resetRequest = useRef(0)
+  const resetPending = useRef(false)
+
+  useEffect(() => () => { resetRequest.current += 1 }, [])
+  useEffect(() => {
+    if (resendSeconds <= 0) return
+    const timer = window.setTimeout(() => setResendSeconds((seconds) => Math.max(0, seconds - 1)), 1000)
+    return () => window.clearTimeout(timer)
+  }, [resendSeconds])
   const handleGoogle = async (credential: string) => {
     setIsSubmitting(true); setStatus('')
     try { const session = await api<AuthSession>('/auth/google', json('POST', { credential })); saveSession(session, remember); onAuthenticated(session) }
@@ -59,6 +69,8 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
   }
 
   const closeForgotPassword = () => {
+    if (resetPending.current) return
+    resetRequest.current += 1
     setForgotOpen(false)
     setResetCodeSent(false)
     setResetEmail('')
@@ -69,34 +81,53 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
   }
 
   const handleForgotPassword = async () => {
+    if (resetPending.current || resendSeconds > 0) return
     const email = resetEmail.trim()
-    if (!email) { setForgotError('Vui lòng nhập email đã đăng ký.'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setForgotError('Vui lòng nhập email đã đăng ký hợp lệ.'); return }
+    const requestId = ++resetRequest.current
+    resetPending.current = true
     setResetLoading(true)
     setForgotError('')
     try {
       const result = await api<{ message: string; devCode?: string }>('/auth/forgot-password', json('POST', { email }))
+      if (requestId !== resetRequest.current) return
+      setResetEmail(email)
       setDevCode(result.devCode ?? '')
+      setResetCode('')
       setResetCodeSent(true)
+      setResendSeconds(60)
     } catch (error) {
-      setForgotError(errorMessage(error))
+      if (requestId === resetRequest.current) setForgotError(errorMessage(error))
     } finally {
-      setResetLoading(false)
+      if (requestId === resetRequest.current) {
+        resetPending.current = false
+        setResetLoading(false)
+      }
     }
   }
 
   const handleResetPassword = async () => {
-    if (!resetCode.trim()) { setForgotError('Vui lòng nhập mã xác nhận.'); return }
+    if (resetPending.current) return
+    if (!/^\d{6}$/.test(resetCode.trim())) { setForgotError('Mã xác nhận phải gồm 6 chữ số.'); return }
     if (newPassword.length < 8) { setForgotError('Mật khẩu mới phải có ít nhất 8 ký tự.'); return }
+    const requestId = ++resetRequest.current
+    resetPending.current = true
     setResetLoading(true)
     setForgotError('')
     try {
       const reset = await api<{ message: string }>('/auth/reset-password', json('POST', { email: resetEmail.trim(), code: resetCode.trim(), newPassword }))
+      if (requestId !== resetRequest.current) return
+      resetPending.current = false
+      setResetLoading(false)
       setStatus(reset.message)
       closeForgotPassword()
     } catch (error) {
-      setForgotError(errorMessage(error))
+      if (requestId === resetRequest.current) setForgotError(errorMessage(error))
     } finally {
-      setResetLoading(false)
+      if (requestId === resetRequest.current) {
+        resetPending.current = false
+        setResetLoading(false)
+      }
     }
   }
 
@@ -200,6 +231,11 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
         okText={resetCodeSent ? 'Đổi mật khẩu' : 'Gửi mã xác nhận'}
         cancelText="Hủy"
         confirmLoading={resetLoading}
+        closable={!resetLoading}
+        maskClosable={!resetLoading}
+        keyboard={!resetLoading}
+        cancelButtonProps={{ disabled: resetLoading }}
+        okButtonProps={{ disabled: resetLoading || (!resetCodeSent && resendSeconds > 0) }}
         onCancel={closeForgotPassword}
         onOk={() => void (resetCodeSent ? handleResetPassword() : handleForgotPassword())}
         destroyOnHidden
@@ -210,14 +246,20 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
             value={resetEmail}
             onChange={(event) => setResetEmail(event.target.value)}
             placeholder="Email đã đăng ký"
-            disabled={resetCodeSent}
+            disabled={resetCodeSent || resetLoading}
             autoFocus
           />
           {resetCodeSent && <>
             {devCode && <Alert type="info" showIcon title={`Mã kiểm thử: ${devCode}`} />}
-            <Input value={resetCode} onChange={(event) => setResetCode(event.target.value)} placeholder="Mã xác nhận" inputMode="numeric" />
-            <Input.Password value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Mật khẩu mới (ít nhất 8 ký tự)" />
+            <Typography.Text type="secondary">Mã có hiệu lực trong 10 phút. Nếu gửi lại, chỉ mã mới nhất còn hiệu lực.</Typography.Text>
+            <Input value={resetCode} onChange={(event) => setResetCode(event.target.value)} placeholder="Mã xác nhận" inputMode="numeric" maxLength={6} autoComplete="one-time-code" disabled={resetLoading} />
+            <Input.Password value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Mật khẩu mới (ít nhất 8 ký tự)" autoComplete="new-password" disabled={resetLoading} />
+            <Space wrap>
+              <Button onClick={() => void handleForgotPassword()} disabled={resetLoading || resendSeconds > 0}>{resendSeconds > 0 ? `Gửi lại mã sau ${resendSeconds}s` : 'Gửi lại mã'}</Button>
+              <Button disabled={resetLoading} onClick={() => { setResetCodeSent(false); setResetCode(''); setNewPassword(''); setDevCode(''); setForgotError('') }}>Sửa email</Button>
+            </Space>
           </>}
+          {!resetCodeSent && resendSeconds > 0 && <Typography.Text type="secondary">Bạn có thể gửi mã tiếp theo sau {resendSeconds} giây.</Typography.Text>}
           {forgotError && <Alert type="error" showIcon title={forgotError} />}
         </Space>
       </Modal>

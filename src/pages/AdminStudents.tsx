@@ -8,9 +8,9 @@ import { api, apiBlob, errorMessage, json } from '../api'
 
 type StudentStatus = 'Chưa ghi danh' | 'Chờ xếp lớp' | 'Đang học' | 'Bảo lưu' | 'Hoàn thành' | 'Đã hủy'
 type StudentRecord = { id: number; enrollmentId: number | null; name: string; code: string; email: string; phone: string; birthDate: string; course: string; courseId: number | null; classId: number | null; className: string; status: StudentStatus; active: boolean; attendance: string; debt: string; joined: string; linked: boolean; canChangeClass: boolean }
-type StudentForm = Pick<StudentRecord, 'name' | 'phone' | 'birthDate' | 'email' | 'course'>
+type StudentForm = Pick<StudentRecord, 'name' | 'phone' | 'birthDate' | 'email' | 'courseId'>
 type ImportRow = { rowNumber: number; fullName: string; email: string; phone: string; birthDate: string | null; errors: string[] }
-type CourseOption = { id: number; name: string; status: 'dang_mo' | 'tam_an' }
+type CourseOption = { id: number; code: string; name: string; language: string; level: string; status: 'dang_mo' | 'tam_an' }
 type ClassOption = { id: number; name: string; courseId: number; enrolled: number; capacity: number; status: string; hasStarted: number }
 type UserApi = { id: number; code: string; fullName: string; email: string; phone: string | null; birthDate: string | null; active: number; createdAt: string }
 type AccountDelivery = { email: string; emailSent: boolean; temporaryPassword?: string; emailWarning?: string }
@@ -28,6 +28,7 @@ const validBirthDate = (value: string) => {
   return year >= 1900 && date.getUTCFullYear() === year && date.getUTCMonth() + 1 === month && date.getUTCDate() === day && date.getTime() < Date.now()
 }
 const displayDate = (value: string) => value ? new Intl.DateTimeFormat('vi-VN').format(new Date(`${value}T00:00:00`)) : '—'
+const courseLabel = (course: CourseOption) => `${course.code} · ${course.name} · ${course.language} · ${course.level}`
 function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
   const [students, setStudents] = useState<StudentRecord[]>([])
   const [courses, setCourses] = useState<CourseOption[]>([])
@@ -83,7 +84,7 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
   useEffect(() => { void load() }, [])
 
   const openNew = () => { form.resetFields(); setEditing('new') }
-  const openEdit = (student: StudentRecord) => { form.setFieldsValue(student); setSelected(null); setEditing(student) }
+  const openEdit = (student: StudentRecord) => { form.resetFields(); form.setFieldsValue(student); setSelected(null); setEditing(student) }
   const showDelivery = (accounts: AccountDelivery[], title: string) => {
     const fallback = accounts.filter((item) => !item.emailSent)
     if (!fallback.length) { messageApi.success(`${title}. Đã gửi thông tin đăng nhập qua email.`); return }
@@ -99,7 +100,7 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
     setSaving(true)
     try {
       if (editing === 'new') {
-        const course = courses.find((item) => item.name === values.course)
+        const course = courses.find((item) => item.id === values.courseId)
         if (!course) throw new Error('Khóa học không tồn tại')
         const result = await api<{ accounts: AccountDelivery[] }>('/enrollments/import/confirm', json('POST', { courseId: course.id, rows: [{ fullName: values.name.trim(), email, phone, birthDate: values.birthDate }] }))
         showDelivery(result.accounts, 'Đã ghi danh học viên')
@@ -235,7 +236,7 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
         <Form.Item name="phone" label="Số điện thoại" rules={[{ required: true, message: 'Vui lòng nhập số điện thoại.' }, { validator: (_, value) => !value || validPhone(value) ? Promise.resolve() : Promise.reject(new Error('Số điện thoại phải có đúng 10 chữ số, bắt đầu bằng 0.')) }]}><Input /></Form.Item>
         <Form.Item name="birthDate" label="Ngày sinh" rules={[{ required: true, message: 'Vui lòng chọn ngày sinh.' }, { validator: (_, value) => !value || validBirthDate(value) ? Promise.resolve() : Promise.reject(new Error('Ngày sinh không hợp lệ.')) }]}><Input type="date" /></Form.Item>
         <Form.Item name="email" label="Email" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập email.' }, { type: 'email', message: 'Email không hợp lệ.' }]}><Input type="email" /></Form.Item>
-        <Form.Item name="course" label="Khóa học đăng ký" rules={[{ required: true, message: 'Vui lòng chọn khóa học.' }]}><Select disabled={editing !== 'new'} showSearch optionFilterProp="label" options={courses.map((item) => ({ value: item.name, label: item.name }))} /></Form.Item>
+        {editing === 'new' ? <Form.Item name="courseId" label="Khóa học đăng ký" rules={[{ required: true, message: 'Vui lòng chọn khóa học.' }]}><Select showSearch optionFilterProp="label" options={courses.map((item) => ({ value: item.id, label: courseLabel(item) }))} /></Form.Item> : <Form.Item label="Khóa học đăng ký"><Input disabled value={typeof editing === 'object' && editing ? editing.course : ''} /></Form.Item>}
       </Form>
     </Modal>
     <Modal title={assigning?.status === 'Bảo lưu' ? `Tiếp tục học cho ${assigning.name}` : assigning ? `Xếp lớp cho ${assigning.name}` : 'Xếp lớp'} open={Boolean(assigning)} onCancel={() => setAssigning(null)} onOk={assignClass} okText="Xác nhận" okButtonProps={{ disabled: !assignClassId }} destroyOnHidden>
@@ -245,13 +246,13 @@ function AdminStudents({ onLogout, onNavigate, onNavigateHome }: Props) {
     <Modal title={enrolling ? `Ghi danh thêm cho ${enrolling.name}` : 'Ghi danh khóa học'} open={Boolean(enrolling)} onCancel={() => setEnrolling(null)} onOk={() => void addEnrollment()} okText="Ghi danh và tạo hóa đơn" confirmLoading={enrollmentLoading} okButtonProps={{ disabled: !enrollmentCourseId }} destroyOnHidden>
       <Alert style={{ margin: '18px 0' }} type="info" showIcon title="Mỗi khóa học là một ghi danh riêng" description="Hệ thống sẽ tạo hóa đơn học phí tương ứng và không cho phép ghi danh trùng khóa đang còn hiệu lực." />
       <Form layout="vertical">
-        <Form.Item label="Khóa học" required><Select value={enrollmentCourseId} onChange={(value) => { setEnrollmentCourseId(value); setEnrollmentClassId(undefined) }} placeholder="Chọn khóa học" options={courses.filter((course) => !students.some((item) => item.id === enrolling?.id && item.enrollmentId && !['Hoàn thành', 'Đã hủy'].includes(item.status) && item.courseId === course.id)).map((course) => ({ value: course.id, label: course.name }))} /></Form.Item>
+        <Form.Item label="Khóa học" required><Select showSearch optionFilterProp="label" value={enrollmentCourseId} onChange={(value) => { setEnrollmentCourseId(value); setEnrollmentClassId(undefined) }} placeholder="Chọn khóa học" options={courses.filter((course) => !students.some((item) => item.id === enrolling?.id && item.enrollmentId && !['Hoàn thành', 'Đã hủy'].includes(item.status) && item.courseId === course.id)).map((course) => ({ value: course.id, label: courseLabel(course) }))} /></Form.Item>
         <Form.Item label="Xếp lớp ngay (không bắt buộc)"><Select allowClear value={enrollmentClassId} onChange={setEnrollmentClassId} disabled={!enrollmentCourseId} placeholder="Để trống nếu xếp lớp sau" options={classes.filter((item) => item.courseId === enrollmentCourseId && ['sap_khai_giang', 'dang_hoc'].includes(item.status) && !Number(item.hasStarted) && item.enrolled < item.capacity).map((item) => ({ value: item.id, label: `${item.name} · ${item.enrolled}/${item.capacity} học viên` }))} /></Form.Item>
       </Form>
     </Modal>
     <Modal title="Import học viên từ Excel" open={importing} onCancel={() => { if (!importLoading) { setImporting(false); setPreview([]) } }} onOk={importValid} confirmLoading={importLoading} okText={`Lưu ${validImportCount} dòng hợp lệ`} okButtonProps={{ disabled: validImportCount === 0 }} width={850} destroyOnHidden>
       <Alert style={{ margin: '18px 0' }} type="info" showIcon title="Định dạng tệp .xlsx" description="Dòng đầu gồm Họ tên, Email, Số điện thoại và Ngày sinh. Tối đa 100 dòng, 5 MB." />
-      <Flex gap={10} align="end" wrap style={{ marginBottom: 16 }}><div style={{ flex: 1 }}><Typography.Text>Khóa học ghi danh</Typography.Text><Select style={{ width: '100%', marginTop: 8 }} value={importCourseId} onChange={(value) => { setImportCourseId(value); setPreview([]) }} options={courses.map((item) => ({ value: item.id, label: item.name }))} /></div><Button onClick={downloadTemplate}>Tải file mẫu</Button></Flex>
+      <Flex gap={10} align="end" wrap style={{ marginBottom: 16 }}><div style={{ flex: 1 }}><Typography.Text>Khóa học ghi danh</Typography.Text><Select showSearch optionFilterProp="label" style={{ width: '100%', marginTop: 8 }} value={importCourseId} onChange={(value) => { setImportCourseId(value); setPreview([]) }} options={courses.map((item) => ({ value: item.id, label: courseLabel(item) }))} /></div><Button onClick={downloadTemplate}>Tải file mẫu</Button></Flex>
       <label htmlFor="student-import-file">Chọn tệp Excel</label><Input disabled={!importCourseId} id="student-import-file" type="file" accept=".xlsx" onChange={loadExcel} style={{ margin: '8px 0 16px' }} />
       {preview.length > 0 && <><Typography.Paragraph>Hợp lệ: <strong>{validImportCount}</strong> · Có lỗi: <strong>{preview.length - validImportCount}</strong></Typography.Paragraph><Table size="small" rowKey="rowNumber" dataSource={preview} pagination={{ pageSize: 6 }} scroll={{ x: 720 }} columns={[{ title: 'Dòng', dataIndex: 'rowNumber', width: 65 }, { title: 'Họ tên', dataIndex: 'fullName' }, { title: 'Email', dataIndex: 'email' }, { title: 'Số điện thoại', dataIndex: 'phone' }, { title: 'Kiểm tra', dataIndex: 'errors', render: (errors: string[]) => errors.length ? <Typography.Text type="danger">{errors.join('; ')}</Typography.Text> : <Tag color="green">Hợp lệ</Tag> }]} /></>}
     </Modal>
