@@ -32,7 +32,7 @@ function harness(page, initial) {
   Object.assign(antd, {
     Form, Input: Object.assign(() => {}, { TextArea: 'TextArea', Password: 'Password' }),
     Space: Object.assign(() => {}, { Compact: 'Compact' }), Typography: { Text: 'Text', Paragraph: 'Paragraph', Title: 'Title' },
-    Modal: Object.assign(() => {}, { useModal: () => [{ confirm: (options) => confirmations.push(options), warning() {} }, null] }),
+    Modal: Object.assign(() => {}, { useModal: () => [{ confirm: (options) => confirmations.push(options), warning: (options) => confirmations.push(options) }, null] }),
     message: { useMessage: () => [messageApi, null] },
   })
   const compiled = ts.transpileModule(readFileSync(new URL(`../src/pages/${page}.tsx`, import.meta.url), 'utf8'), { compilerOptions: {
@@ -54,12 +54,12 @@ function harness(page, initial) {
   const find = (type, predicate) => { const found = all(type, predicate)[0]; assert.ok(found, `${page}: missing ${type}`); return found }
   const button = (label) => find('Button', (props) => text(props.children) === label)
   render()
-  return { flush, find, all, button, Form, calls, confirmations, set: (path, response) => responses.set(path, response) }
+  return { flush, find, all, button, Form, Modal: antd.Modal, calls, confirmations, set: (path, response) => responses.set(path, response) }
 }
 
 const routes = ['/users?role=hoc_vien', '/enrollments', '/invoices', '/courses/all', '/classes', '/rooms', '/schedules', '/users?role=giao_vien', '/exams']
 for (const [page, failingRoute, action] of [
-  ['AdminStudents', '/users?role=hoc_vien', 'Ghi danh học viên'], ['AdminCourses', '/courses/all', 'Thêm khóa học'],
+  ['AdminStudents', '/users?role=hoc_vien', 'Thêm học viên'], ['AdminCourses', '/courses/all', 'Thêm khóa học'],
   ['AdminClasses', '/classes', 'Tạo lớp học'], ['AdminTeachers', '/users?role=giao_vien', 'Thêm giáo viên'],
   ['AdminSchedule', '/schedules', 'Xếp lịch mới'], ['AdminExams', '/exams', 'Tạo kỳ thi'],
 ]) {
@@ -85,6 +85,37 @@ table = unlinked.find('Table'); table.columns.find((column) => column.key === 'a
 assert.equal(unlinked.button('Xóa hồ sơ').disabled, false, 'unlinked account may be deleted')
 
 const course = { id: 1, code: 'K1', name: 'Khóa', language: 'Tiếng Anh', level: 'A1', sessions: 1, tuition: 1000, linkedClasses: 0, description: '', status: 'dang_mo' }
+const newStudent = { ...student, id: 2, email: 'new@example.test', phone: '0912345679' }
+const intake = harness('AdminStudents', { '/users?role=hoc_vien': [student], '/courses/all': [course],
+  '/users': { ...newStudent, emailSent: false, temporaryPassword: 'Synthetic-password-123', emailWarning: 'SMTP thử nghiệm chưa cấu hình' } })
+await intake.flush()
+intake.button('Thêm học viên').onClick(); await intake.flush()
+intake.set('/users?role=hoc_vien', [student, newStudent])
+await intake.find(intake.Form).onFinish({ name: 'Học viên', email: newStudent.email, phone: newStudent.phone, birthDate: newStudent.birthDate })
+await intake.flush()
+assert.equal(intake.calls.filter((call) => call.path === '/users' && call.options.method === 'POST').length, 1)
+assert.equal(intake.calls.some((call) => call.path === '/enrollments/import/confirm'), false, 'hồ sơ trước kiểm tra không tạo ghi danh/hóa đơn')
+assert.equal(intake.find('Tabs').activeKey, 'placement')
+assert.ok(intake.confirmations.some((item) => text(item.content).includes('Synthetic-password-123')), 'mật khẩu tạm phải có đường bàn giao khi email không gửi')
+let placement = intake.find('./PlacementAssessments')
+placement.onPendingChange(true); await intake.flush()
+assert.equal(intake.find('Drawer').maskClosable, false)
+intake.find('Drawer').onClose(); intake.find('Tabs').onChange('profile'); await intake.flush()
+assert.equal(intake.find('Drawer').open, true)
+assert.equal(intake.find('Tabs').activeKey, 'placement')
+placement.onPendingChange(false); placement.onHistoryChange(); await intake.flush()
+assert.equal(intake.button('Xóa hồ sơ').disabled, true, 'lịch sử đầu vào cũng ngăn xóa tài khoản')
+placement = intake.find('./PlacementAssessments')
+placement.onRecommendCourse(1); await intake.flush()
+assert.equal(intake.find(intake.Modal, (props) => props.title === 'Ghi danh thêm cho Học viên').open, true)
+assert.equal(intake.find('Select', (props) => props.placeholder === 'Chọn khóa học').value, 1)
+assert.equal(intake.find('Select', (props) => props.placeholder === 'Để trống nếu xếp lớp sau').value, undefined)
+assert.equal(intake.calls.some((call) => call.path === '/enrollments' && call.options.method === 'POST'), false, 'tư vấn chỉ mở form, không tự ghi danh')
+const changed = harness('AdminStudents', { '/users?role=hoc_vien': [student], '/courses/all': [course] }); await changed.flush()
+let intakeTable = changed.find('Table'); intakeTable.columns.find((column) => column.key === 'action').render(null, intakeTable.dataSource[0]).props.onClick(); await changed.flush()
+changed.find('Tabs').onChange('placement'); await changed.flush()
+changed.set('/courses/all', [{ ...course, level: 'B2' }]); changed.find('./PlacementAssessments').onRecommendCourse(1); await changed.flush()
+assert.equal(changed.find(changed.Modal, (props) => props.title === 'Ghi danh khóa học').open, false, 'khóa đổi trình độ không được tự chuyển nghĩa đề xuất cũ')
 const classRow = (id, teacherId = 1) => ({ id, code: `L${id}`, name: `Lớp ${id}`, courseId: 1, courseName: 'Khóa', teacherId, teacherName: 'Giáo viên', startDate: '2026-01-01', sessions: 1, generatedSessions: 1, effectiveSessions: 1, completedSessions: 0, capacity: 20, status: 'dang_hoc', enrolled: 1, certificateLocked: 0 })
 const schedule = (id, roomCode, classId = 1) => ({ id, classId, className: 'Lớp 1', teacherName: 'Giáo viên', roomId: id, roomCode, dayOfWeek: 2, startTime: '18:00:00', endTime: '19:00:00' })
 const classes = harness('AdminClasses', { '/classes': [classRow(1), classRow(2), classRow(3)], '/courses/all': [course], '/users?role=giao_vien': [{ id: 1, fullName: 'Đã khóa', active: 0 }, { id: 2, fullName: 'Hoạt động', active: 1 }, { id: 3, fullName: 'Khóa khác', active: 0 }], '/schedules': [schedule(1, 'P1, khu A'), schedule(2, 'P2'), schedule(3, 'P2', 2)] })

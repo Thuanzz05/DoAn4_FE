@@ -15,6 +15,7 @@ import './StudentResults.css'
 import { api, errorMessage } from '../api'
 import { enrollmentLabels } from './enrollmentLabels'
 import { academicScore } from '../academicScore'
+import PlacementAssessments from './PlacementAssessments'
 
 type StudentResultsProps = {
   onLogout: () => void
@@ -128,6 +129,7 @@ function StudentResults({ onLogout, onNavigate, onNavigateHome }: StudentResults
   return (
     <StudentLayout activePage="student-results" mainId="student-results" onLogout={onLogout} onNavigate={onNavigate} onNavigateHome={onNavigateHome}>
       <AdminPageHeader kicker="Kết quả học tập" title="Điểm số và chuyên cần" description="Theo dõi từng khóa học, kể cả lớp chưa có kỳ thi." actions={<Space wrap><Select aria-label="Chọn khóa và lớp học" value={enrollmentId} loading={loading} onChange={(value) => { const classId = eligibility.find((item) => item.enrollmentId === value)?.classId; setSelection({ enrollmentId: value, examId: result.exams.find((item) => item.enrollmentId === value && item.classId === classId)?.examId }) }} disabled={loading || Boolean(error) || !eligibility.length} placeholder="Chọn khóa / lớp" style={{ minWidth: 240, maxWidth: '100%' }} options={eligibility.map((item) => ({ value: item.enrollmentId, label: `${item.courseName} · ${enrollmentLabels[item.enrollmentStatus] ?? item.enrollmentStatus} · ${item.classCode ?? 'Chưa xếp lớp'}${item.className ? ` · ${item.className}` : ''}` }))} /><Select aria-label="Chọn kỳ thi" value={exam?.examId} onChange={(value) => setSelection((current) => ({ ...current, examId: value }))} disabled={loading || Boolean(error) || !exams.length} placeholder="Chưa có kỳ thi" style={{ minWidth: 200, maxWidth: '100%' }} options={exams.map((item) => ({ value: item.examId, label: item.examName }))} /><Button loading={loading} onClick={() => setReload((value) => value + 1)}>Làm mới</Button></Space>} />
+      <PlacementAssessments />
       {loading ? <Skeleton active paragraph={{ rows: 8 }} /> : error ? <Alert type="error" showIcon title="Chưa tải được kết quả học tập" description={error} action={<Button onClick={() => setReload((value) => value + 1)}>Thử lại</Button>} /> : !eligibility.length && !result.exams.length && !result.attendance.length ? <Empty description="Chưa có dữ liệu học tập" /> : <>
       <AdminSummary items={[
         { label: 'Điểm trung bình kỳ thi', value: scoreLabel(average), detail: exam?.examName ?? 'Chưa có kỳ thi', icon: <ChartBar weight="duotone" /> },

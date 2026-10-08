@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "test": "node scripts/check-certificate-issuance.mjs && node scripts/check-admin-pages.mjs && node scripts/check-teacher-workflows.mjs && node scripts/check-student-pages.mjs",
+    "test": "node scripts/check-certificate-issuance.mjs && node scripts/check-admin-pages.mjs && node scripts/check-teacher-workflows.mjs && node scripts/check-student-pages.mjs && node scripts/check-placement-assessments.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
