@@ -1,27 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarBlank, CaretRight, CheckCircle, MagnifyingGlass, MapPin, PencilSimple, Play, Plus, Student, Trash, UsersThree, XCircle } from '@phosphor-icons/react'
-import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Progress, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd'
+import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, InputNumber, Modal, Progress, Select, Space, Table, Tabs, Tag, Timeline, Typography, message } from 'antd'
 import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
-import { api, errorMessage, json } from '../api'
+import { ApiError, api, errorMessage, json } from '../api'
 import AcademicDetails from './AcademicDetails'
 
 type ClassStatus = 'Đang học' | 'Sắp khai giảng' | 'Đã kết thúc' | 'Đã hủy'
-type ClassRecord = { id: number; code: string; name: string; course: string; courseId: number; startDate: string; sessions: number; generatedSessions: number; effectiveSessions: number; completedSessions: number; capacity: number; enrolled: number; teacher: string; teacherId: number | null; schedule: string; room: string; status: ClassStatus; progress: number }
+type ClassRecord = { id: number; code: string; name: string; course: string; courseId: number; startDate: string; sessions: number; generatedSessions: number; effectiveSessions: number; completedSessions: number; capacity: number; enrolled: number; teacher: string; teacherId: number | null; schedule: string; room: string; status: ClassStatus; progress: number; certificateLocked: boolean }
 type ClassForm = Pick<ClassRecord, 'code' | 'name' | 'courseId' | 'teacherId' | 'startDate' | 'sessions' | 'capacity'>
 type Props = { onLogout: () => void; onNavigate: (page: AdminPage) => void; onNavigateHome: () => void }
-type ClassApi = { id: number; code: string; name: string; courseId: number; courseName: string; teacherId: number | null; teacherName: string | null; startDate: string; sessions: number; generatedSessions: number; effectiveSessions: number; completedSessions: number; capacity: number; status: string; enrolled: number }
+type ClassApi = { id: number; code: string; name: string; courseId: number; courseName: string; teacherId: number | null; teacherName: string | null; startDate: string; sessions: number; generatedSessions: number; effectiveSessions: number; completedSessions: number; capacity: number; status: string; enrolled: number; certificateLocked: number }
 type CourseOption = { id: number; name: string; sessions: number }
 type TeacherOption = { id: number; fullName: string }
 type RoomOption = { id: number; code: string; capacity: number }
 type ScheduleApi = { classId: number; roomCode: string; dayOfWeek: number; startTime: string }
 type SessionStatus = 'da_len_lich' | 'da_hoc' | 'da_huy'
-type SessionApi = { id: number; classId: number; teacherId: number; teacherName: string; roomId: number; roomCode: string; startsAt: string; endsAt: string; status: SessionStatus; attendanceCount: number }
-type SessionForm = { date: string; startTime: string; endTime: string; teacherId: number; roomId: number }
+type SessionApi = { id: number; classId: number; teacherId: number; teacherName: string; roomId: number; roomCode: string; startsAt: string; endsAt: string; status: SessionStatus; attendanceCount: number; missingAttendanceCount: number }
+type SessionForm = { date: string; startTime: string; endTime: string; teacherId: number; roomId: number; reason: string }
+type AttendanceStatus = 'co_mat' | 'di_muon' | 'vang'
+type AttendanceRow = { enrollmentId: number; studentCode: string; studentName: string; status: AttendanceStatus | null; note: string | null; certificateId: number | null }
+type SessionAttendance = { session: Pick<SessionApi, 'id' | 'classId' | 'startsAt' | 'endsAt' | 'status' | 'teacherName' | 'roomCode'>; students: AttendanceRow[] }
+type AttendanceForm = { reason: string; items: Array<{ enrollmentId: number; status: AttendanceStatus; note?: string }> }
+type SessionHistory = { id: number; action: string; reason: string; before: Record<string, unknown> | null; after: Record<string, unknown>; changedAt: string; actorName: string }
 const statusColor: Record<ClassStatus, string> = { 'Đang học': 'green', 'Sắp khai giảng': 'gold', 'Đã kết thúc': 'default', 'Đã hủy': 'red' }
 const sessionStatus: Record<SessionStatus, { label: string; color: string }> = { da_len_lich: { label: 'Đã lên lịch', color: 'blue' }, da_hoc: { label: 'Đã học', color: 'green' }, da_huy: { label: 'Đã hủy', color: 'red' } }
 const displayDate = (value: string) => new Intl.DateTimeFormat('vi-VN').format(new Date(`${value}T00:00:00`))
+const attendanceOptions = [{ value: 'co_mat', label: 'Có mặt' }, { value: 'di_muon', label: 'Đi muộn' }, { value: 'vang', label: 'Vắng' }]
+const attendanceText = (status: AttendanceStatus | null) => attendanceOptions.find((item) => item.value === status)?.label ?? 'Chưa ghi'
+const timeText = (value: string) => new Date(value.replace(' ', 'T')).toLocaleString('vi-VN')
+const reasonRules = [{ required: true, whitespace: true, message: 'Vui lòng nhập lý do xử lý.' }, { max: 255, message: 'Lý do tối đa 255 ký tự.' }]
 
 function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
   const [classes, setClasses] = useState<ClassRecord[]>([])
@@ -33,33 +42,50 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
   const sessionsRequestId = useRef(0)
   const selectedClassId = useRef<number | null>(null)
   const [sessionEditing, setSessionEditing] = useState<SessionApi | null>(null)
+  const [sessionCanceling, setSessionCanceling] = useState<SessionApi | null>(null)
+  const [attendanceSession, setAttendanceSession] = useState<SessionApi | null>(null)
+  const [attendance, setAttendance] = useState<SessionAttendance | null>(null)
+  const [attendanceLoading, setAttendanceLoading] = useState(false)
+  const [attendanceError, setAttendanceError] = useState('')
+  const attendanceRequestId = useRef(0)
+  const [historySession, setHistorySession] = useState<SessionApi | null>(null)
+  const [history, setHistory] = useState<SessionHistory[]>([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState('')
+  const historyRequestId = useRef(0)
+  const [sessionSaving, setSessionSaving] = useState(false)
+  const sessionSavePending = useRef(false)
+  const [academicRevision, setAcademicRevision] = useState(0)
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'Tất cả' | ClassStatus>('Tất cả')
   const [selected, setSelected] = useState<ClassRecord | null>(null)
   const [editing, setEditing] = useState<ClassRecord | 'new' | null>(null)
   const [form] = Form.useForm<ClassForm>()
   const [sessionForm] = Form.useForm<SessionForm>()
+  const [cancelForm] = Form.useForm<{ reason: string }>()
+  const [attendanceForm] = Form.useForm<AttendanceForm>()
   const [messageApi, contextHolder] = message.useMessage()
   const [modalApi, modalContext] = Modal.useModal()
   const data = useMemo(() => classes.filter((item) => (!query.trim() || [item.name, item.code, item.course, item.teacher].some((value) => value.toLocaleLowerCase('vi').includes(query.trim().toLocaleLowerCase('vi')))) && (status === 'Tất cả' || item.status === status)), [classes, query, status])
   const planLocked = typeof editing === 'object' && editing !== null && editing.generatedSessions > 0
+  const missingLearners = attendance?.students.filter((item) => item.status === null && !item.certificateId) ?? []
 
   const load = async () => {
     try {
       const [rows, courseRows, teacherRows, roomRows, schedules] = await Promise.all([api<ClassApi[]>('/classes'), api<CourseOption[]>('/courses/all'), api<TeacherOption[]>('/users?role=giao_vien'), api<RoomOption[]>('/rooms'), api<ScheduleApi[]>('/schedules')])
       setCourses(courseRows); setTeachers(teacherRows); setRooms(roomRows)
       const statusMap: Record<string, ClassStatus> = { sap_khai_giang: 'Sắp khai giảng', dang_hoc: 'Đang học', da_ket_thuc: 'Đã kết thúc', da_huy: 'Đã hủy' }
-      const records = rows.map((item) => { const slots = schedules.filter((slot) => slot.classId === item.id); const total = Number(item.sessions); const completed = Number(item.completedSessions); return { id: item.id, code: item.code, name: item.name, course: item.courseName, courseId: item.courseId, startDate: String(item.startDate).slice(0, 10), sessions: total, generatedSessions: Number(item.generatedSessions), effectiveSessions: Number(item.effectiveSessions), completedSessions: completed, capacity: Number(item.capacity), enrolled: Number(item.enrolled), teacher: item.teacherName ?? 'Chưa phân công', teacherId: item.teacherId, schedule: slots.length ? slots.map((slot) => `${slot.dayOfWeek === 1 ? 'CN' : `T${slot.dayOfWeek}`} · ${slot.startTime.slice(0, 5)}`).join(', ') : 'Chưa xếp lịch', room: slots.map((slot) => slot.roomCode).join(', ') || '—', status: statusMap[item.status] ?? 'Sắp khai giảng', progress: total ? Math.round(completed * 100 / total) : 0 } })
+      const records = rows.map((item) => { const slots = schedules.filter((slot) => slot.classId === item.id); const total = Number(item.sessions); const completed = Number(item.completedSessions); return { id: item.id, code: item.code, name: item.name, course: item.courseName, courseId: item.courseId, startDate: String(item.startDate).slice(0, 10), sessions: total, generatedSessions: Number(item.generatedSessions), effectiveSessions: Number(item.effectiveSessions), completedSessions: completed, capacity: Number(item.capacity), enrolled: Number(item.enrolled), teacher: item.teacherName ?? 'Chưa phân công', teacherId: item.teacherId, schedule: slots.length ? slots.map((slot) => `${slot.dayOfWeek === 1 ? 'CN' : `T${slot.dayOfWeek}`} · ${slot.startTime.slice(0, 5)}`).join(', ') : 'Chưa xếp lịch', room: slots.map((slot) => slot.roomCode).join(', ') || '—', status: statusMap[item.status] ?? 'Sắp khai giảng', progress: total ? Math.round(completed * 100 / total) : 0, certificateLocked: Boolean(Number(item.certificateLocked)) } })
       setClasses(records); setSelected((current) => current ? records.find((item) => item.id === current.id) ?? null : null)
     } catch (error) { messageApi.error(errorMessage(error)) }
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { void load() }, [])
-  useEffect(() => () => { sessionsRequestId.current += 1; selectedClassId.current = null }, [])
+  useEffect(() => () => { sessionsRequestId.current += 1; attendanceRequestId.current += 1; historyRequestId.current += 1; selectedClassId.current = null }, [])
 
   const closeDetails = () => {
-    selectedClassId.current = null; sessionsRequestId.current += 1
-    setSelected(null); setClassSessions([]); setSessionsLoading(false); setSessionEditing(null)
+    selectedClassId.current = null; sessionsRequestId.current += 1; attendanceRequestId.current += 1; historyRequestId.current += 1
+    setSelected(null); setClassSessions([]); setSessionsLoading(false); setSessionEditing(null); setSessionCanceling(null); setAttendanceSession(null); setAttendance(null); setHistorySession(null)
   }
   const loadSessions = async (classId: number) => {
     if (classId !== selectedClassId.current) return
@@ -76,28 +102,90 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
   }
   const openSessionEdit = (item: SessionApi) => {
     if (item.classId !== selectedClassId.current) return
-    sessionForm.setFieldsValue({ date: item.startsAt.slice(0, 10), startTime: item.startsAt.slice(11, 16), endTime: item.endsAt.slice(11, 16), teacherId: item.teacherId, roomId: item.roomId })
+    sessionForm.resetFields()
+    sessionForm.setFieldsValue({ date: item.startsAt.slice(0, 10), startTime: item.startsAt.slice(11, 16), endTime: item.endsAt.slice(11, 16), teacherId: item.teacherId, roomId: item.roomId, reason: '' })
     setSessionEditing(item)
   }
+  const refreshSession = async (classId: number) => {
+    await load(); await loadSessions(classId)
+    if (classId === selectedClassId.current) setAcademicRevision((value) => value + 1)
+  }
   const saveSession = async (values: SessionForm) => {
-    if (!sessionEditing || !selected || sessionEditing.classId !== selectedClassId.current) return
+    if (!sessionEditing || sessionSavePending.current || sessionEditing.classId !== selectedClassId.current) return
+    const item = sessionEditing
+    sessionSavePending.current = true; setSessionSaving(true)
     try {
-      await api(`/sessions/${sessionEditing.id}`, json('PATCH', values))
-      if (sessionEditing.classId === selectedClassId.current) setSessionEditing(null)
-      await load(); await loadSessions(selected.id); messageApi.success(sessionEditing.status === 'da_huy' ? 'Đã xếp lịch học bù.' : 'Đã cập nhật buổi học.')
+      await api(`/sessions/${item.id}`, json('PATCH', { ...values, reason: values.reason.trim() }))
+      if (item.classId === selectedClassId.current) setSessionEditing(null)
+      await refreshSession(item.classId); messageApi.success(item.status === 'da_huy' ? 'Đã xếp lịch học bù và ghi lịch sử.' : 'Đã cập nhật buổi học và ghi lịch sử.')
     } catch (error) { messageApi.error(errorMessage(error)) }
+    finally { sessionSavePending.current = false; setSessionSaving(false) }
   }
   const cancelSession = (item: SessionApi) => {
-    if (!selected || item.classId !== selectedClassId.current) return
-    modalApi.confirm({
-      title: 'Hủy buổi học?',
-      content: `${new Date(item.startsAt.replace(' ', 'T')).toLocaleString('vi-VN')} · ${item.roomCode}. Bạn có thể xếp lịch bù sau.`,
-      okText: 'Hủy buổi', okButtonProps: { danger: true },
-      onOk: async () => {
-        try { await api(`/sessions/${item.id}/cancel`, json('POST')); await load(); await loadSessions(selected.id); messageApi.success('Đã hủy buổi học.') }
-        catch (error) { messageApi.error(errorMessage(error)) }
-      },
-    })
+    if (item.classId !== selectedClassId.current) return
+    cancelForm.resetFields(); setSessionCanceling(item)
+  }
+  const saveCancellation = async ({ reason }: { reason: string }) => {
+    if (!sessionCanceling || sessionSavePending.current || sessionCanceling.classId !== selectedClassId.current) return
+    const item = sessionCanceling
+    sessionSavePending.current = true; setSessionSaving(true)
+    try {
+      await api(`/sessions/${item.id}/cancel`, json('POST', { reason: reason.trim() }))
+      if (item.classId === selectedClassId.current) setSessionCanceling(null)
+      await refreshSession(item.classId); messageApi.success('Đã hủy buổi học và ghi lịch sử. Hãy xếp lịch bù để đủ chương trình.')
+    } catch (error) { messageApi.error(errorMessage(error)) }
+    finally { sessionSavePending.current = false; setSessionSaving(false) }
+  }
+  const loadAttendance = async (item: SessionApi) => {
+    if (item.classId !== selectedClassId.current) return
+    const requestId = ++attendanceRequestId.current
+    setAttendance(null); setAttendanceLoading(true); setAttendanceError(''); attendanceForm.resetFields()
+    try {
+      const result = await api<SessionAttendance>(`/sessions/${item.id}/attendance`)
+      if (requestId !== attendanceRequestId.current || item.classId !== selectedClassId.current) return
+      setAttendance(result)
+      attendanceForm.setFieldsValue({ reason: '', items: result.students.filter((row) => row.status === null && !row.certificateId).map((row) => ({ enrollmentId: row.enrollmentId, note: '' })) })
+    } catch (error) { if (requestId === attendanceRequestId.current) setAttendanceError(errorMessage(error)) }
+    finally { if (requestId === attendanceRequestId.current) setAttendanceLoading(false) }
+  }
+  const openAttendance = (item: SessionApi) => {
+    if (item.classId !== selectedClassId.current) return
+    setAttendanceSession(item); void loadAttendance(item)
+  }
+  const saveAttendance = async (values: AttendanceForm) => {
+    if (!attendanceSession || !attendance || sessionSavePending.current || attendanceSession.classId !== selectedClassId.current || !missingLearners.length) return
+    const item = attendanceSession
+    sessionSavePending.current = true; setSessionSaving(true)
+    try {
+      await api(`/sessions/${item.id}/attendance`, json('PUT', { reason: values.reason.trim(), items: values.items.map((row) => ({ ...row, note: row.note?.trim() || null })) }))
+      if (item.classId === selectedClassId.current) { attendanceRequestId.current += 1; setAttendanceSession(null); setAttendance(null) }
+      await refreshSession(item.classId); messageApi.success('Đã bổ sung điểm danh và ghi lịch sử xử lý.')
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409 && item.classId === selectedClassId.current) setAttendanceError(errorMessage(error))
+      messageApi.error(errorMessage(error))
+    }
+    finally { sessionSavePending.current = false; setSessionSaving(false) }
+  }
+  const loadHistory = async (item: SessionApi) => {
+    if (item.classId !== selectedClassId.current) return
+    const requestId = ++historyRequestId.current
+    setHistory([]); setHistoryLoading(true); setHistoryError('')
+    try {
+      const rows = await api<SessionHistory[]>(`/sessions/${item.id}/history`)
+      if (requestId === historyRequestId.current && item.classId === selectedClassId.current) setHistory(rows)
+    } catch (error) { if (requestId === historyRequestId.current) setHistoryError(errorMessage(error)) }
+    finally { if (requestId === historyRequestId.current) setHistoryLoading(false) }
+  }
+  const openHistory = (item: SessionApi) => {
+    if (item.classId !== selectedClassId.current) return
+    setHistorySession(item); void loadHistory(item)
+  }
+  const historyFields = (value: SessionHistory['before']) => {
+    if (!value) return 'Chưa có'
+    const snapshot = (value.session ?? value) as Record<string, unknown>
+    const snapshotStatus = snapshot.status as SessionStatus
+    const marks = value.items as Array<{ enrollmentId: number; studentCode?: string; studentName?: string; status: AttendanceStatus; note?: string }> | undefined
+    return <><Typography.Paragraph style={{ marginBottom: 8 }}>{snapshot.startsAt ? timeText(String(snapshot.startsAt)) : '—'} – {String(snapshot.endsAt ?? '').slice(11, 16)}<br />{String(snapshot.teacherName ?? teachers.find((row) => row.id === Number(snapshot.teacherId))?.fullName ?? 'Chưa phân công')} · {String(snapshot.roomCode ?? rooms.find((row) => row.id === Number(snapshot.roomId))?.code ?? '—')}<br />{sessionStatus[snapshotStatus]?.label ?? '—'}</Typography.Paragraph>{marks && (marks.length ? marks.map((mark) => <Typography.Paragraph key={mark.enrollmentId} style={{ marginBottom: 4 }}>{mark.studentName || mark.studentCode || `Học viên #${mark.enrollmentId}`}: {attendanceText(mark.status)}{mark.note ? ` · ${mark.note}` : ''}</Typography.Paragraph>) : <Typography.Text type="secondary">Chưa có điểm danh</Typography.Text>)}</>
   }
 
   const openNew = () => { form.resetFields(); form.setFieldsValue({ courseId: courses[0]?.id, sessions: courses[0]?.sessions ?? 24, capacity: 20 }); setEditing('new') }
@@ -154,11 +242,14 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
     { title: 'Giáo viên', dataIndex: 'teacherName' },
     { title: 'Phòng', dataIndex: 'roomCode', width: 80 },
     { title: 'Trạng thái', dataIndex: 'status', width: 110, render: (value: SessionStatus) => <Tag color={sessionStatus[value].color}>{sessionStatus[value].label}</Tag> },
-    { title: 'Điểm danh', dataIndex: 'attendanceCount', width: 90, render: (value: number) => `${value} lượt` },
-    { title: '', key: 'actions', width: 96, render: (_, item) => {
+    { title: 'Điểm danh', key: 'attendance', width: 130, render: (_, item) => <><Typography.Text>{item.attendanceCount} đã ghi</Typography.Text>{Number(item.missingAttendanceCount) > 0 && <><br /><Typography.Text type="warning">{item.missingAttendanceCount} còn thiếu</Typography.Text></>}</> },
+    { title: 'Thao tác', key: 'actions', width: 310, render: (_, item) => {
       const future = new Date(item.startsAt.replace(' ', 'T')).getTime() > Date.now()
-      const editable = selected && !['Đã kết thúc', 'Đã hủy'].includes(selected.status) && (item.status === 'da_huy' || (item.status === 'da_len_lich' && future))
-      return <Space size={4}>{editable && <Button size="small" icon={<PencilSimple />} onClick={() => openSessionEdit(item)} aria-label={item.status === 'da_huy' ? 'Xếp lịch bù' : 'Sửa buổi học'} />}{item.status === 'da_len_lich' && future && <Button size="small" danger icon={<XCircle />} onClick={() => cancelSession(item)} aria-label="Hủy buổi học" />}</Space>
+      const mutable = selected && !selected.certificateLocked && !['Đã kết thúc', 'Đã hủy'].includes(selected.status) && Number(item.attendanceCount) === 0
+      const editable = mutable && (item.status === 'da_huy' || (item.status === 'da_len_lich' && future))
+      const cancellable = mutable && item.status === 'da_len_lich'
+      const supplement = selected?.status !== 'Đã hủy' && item.status !== 'da_huy' && !future && Number(item.missingAttendanceCount) > 0
+      return <Space size={4} wrap>{editable && <Button size="small" icon={<PencilSimple />} onClick={() => openSessionEdit(item)}>{item.status === 'da_huy' ? 'Xếp lịch bù' : 'Dời buổi'}</Button>}{cancellable && <Button size="small" danger icon={<XCircle />} onClick={() => cancelSession(item)}>Hủy buổi</Button>}{supplement && <Button size="small" onClick={() => openAttendance(item)}>Bổ sung điểm danh</Button>}<Button size="small" onClick={() => openHistory(item)}>Lịch sử</Button></Space>
     } },
   ]
   const columns: TableProps<ClassRecord>['columns'] = [
@@ -193,20 +284,52 @@ function AdminClasses({ onLogout, onNavigate, onNavigateHome }: Props) {
             </>,
           },
           {
-            key: 'sessions', label: `Buổi học (${classSessions.length})`, children: <Table rowKey="id" size="small" loading={sessionsLoading} columns={sessionColumns} dataSource={classSessions} pagination={{ pageSize: 8, hideOnSinglePage: true }} scroll={{ x: 650 }} locale={{ emptyText: selected.generatedSessions ? 'Không có buổi học' : 'Hãy tạo các buổi học từ tab Tổng quan' }} />,
+            key: 'sessions', label: `Buổi học (${classSessions.length})`, children: <>{selected.certificateLocked && <Alert type="info" showIcon title="Lớp đã chốt hồ sơ chứng chỉ" description="Lịch học đã khóa. Điểm danh chỉ được bổ sung cho học viên còn thiếu và chưa chốt chứng chỉ." style={{ marginBottom: 16 }} />}<Table rowKey="id" size="small" loading={sessionsLoading} columns={sessionColumns} dataSource={classSessions} pagination={{ pageSize: 8, hideOnSinglePage: true }} scroll={{ x: 950 }} locale={{ emptyText: selected.generatedSessions ? 'Không có buổi học' : 'Hãy tạo các buổi học từ tab Tổng quan' }} /></>,
           },
-          { key: 'academic', label: 'Học viên, điểm danh và điểm', children: <AcademicDetails classId={selected.id} /> },
+          { key: 'academic', label: 'Học viên, điểm danh và điểm', children: <AcademicDetails classId={selected.id} revision={academicRevision} /> },
         ]} />
       </>}
     </Drawer>
-    <Modal title={sessionEditing?.status === 'da_huy' ? 'Xếp lịch học bù' : 'Sửa buổi học'} open={sessionEditing !== null} onCancel={() => setSessionEditing(null)} onOk={() => sessionForm.submit()} okText="Lưu buổi học" destroyOnHidden>
-      <Form form={sessionForm} layout="vertical" onFinish={saveSession} style={{ marginTop: 20 }}>
+    <Modal title={sessionEditing?.status === 'da_huy' ? 'Xếp lịch học bù' : 'Dời buổi học'} open={sessionEditing !== null} onCancel={() => !sessionSaving && setSessionEditing(null)} onOk={() => sessionForm.submit()} confirmLoading={sessionSaving} okText="Lưu và ghi lịch sử" destroyOnHidden>
+      <Form form={sessionForm} layout="vertical" disabled={sessionSaving} onFinish={saveSession} style={{ marginTop: 20 }}>
         <Form.Item name="date" label="Ngày học" rules={[{ required: true, message: 'Vui lòng chọn ngày học.' }]}><Input type="date" /></Form.Item>
         <Space align="start"><Form.Item name="startTime" label="Giờ bắt đầu" rules={[{ required: true }]}><Input type="time" /></Form.Item><Form.Item name="endTime" label="Giờ kết thúc" rules={[{ required: true }]}><Input type="time" /></Form.Item></Space>
         <Form.Item name="teacherId" label="Giáo viên" rules={[{ required: true }]}><Select showSearch optionFilterProp="label" options={teachers.map((item) => ({ value: item.id, label: item.fullName }))} /></Form.Item>
         <Form.Item name="roomId" label="Phòng học" rules={[{ required: true }]}><Select options={rooms.filter((room) => room.capacity >= (selected?.capacity ?? 0)).map((room) => ({ value: room.id, label: `${room.code} · ${room.capacity} chỗ` }))} /></Form.Item>
+        <Form.Item name="reason" label={sessionEditing?.status === 'da_huy' ? 'Lý do xếp lịch học bù' : 'Lý do dời buổi học'} rules={reasonRules}><Input.TextArea rows={3} maxLength={255} /></Form.Item>
       </Form>
     </Modal>
+    <Modal title="Hủy buổi học" open={sessionCanceling !== null} onCancel={() => !sessionSaving && setSessionCanceling(null)} onOk={() => cancelForm.submit()} confirmLoading={sessionSaving} okText="Hủy và ghi lịch sử" okButtonProps={{ danger: true }} destroyOnHidden>
+      {sessionCanceling && <Typography.Paragraph>{timeText(sessionCanceling.startsAt)} · {sessionCanceling.roomCode}</Typography.Paragraph>}
+      <Alert type="warning" showIcon title="Chỉ hủy buổi chưa có điểm danh" description="Buổi nghỉ không tính vào chuyên cần. Sau khi hủy, xếp lịch bù để đủ số buổi của khóa học." style={{ marginBottom: 16 }} />
+      <Form form={cancelForm} layout="vertical" disabled={sessionSaving} onFinish={saveCancellation}><Form.Item name="reason" label="Lý do hủy buổi học" rules={reasonRules}><Input.TextArea rows={3} maxLength={255} /></Form.Item></Form>
+    </Modal>
+    <Modal title="Bổ sung điểm danh còn thiếu" open={attendanceSession !== null} width={760} onCancel={() => { if (!sessionSaving) { attendanceRequestId.current += 1; setAttendanceSession(null); setAttendance(null) } }} onOk={() => attendanceForm.submit()} confirmLoading={sessionSaving} okButtonProps={{ disabled: attendanceLoading || Boolean(attendanceError) || !missingLearners.length }} okText="Lưu và ghi lịch sử" destroyOnHidden>
+      {attendanceSession && <Typography.Paragraph>{timeText(attendanceSession.startsAt)} · {attendanceSession.teacherName} · {attendanceSession.roomCode}</Typography.Paragraph>}
+      <Alert type="info" showIcon title="Chỉ bổ sung học viên chưa được điểm danh" description="Chọn trạng thái thực tế cho từng học viên. Điểm danh đã ghi và hồ sơ đã chốt chứng chỉ được giữ nguyên." style={{ marginBottom: 16 }} />
+      {attendanceError && <Alert type="error" showIcon title="Chưa thể bổ sung điểm danh" description={attendanceError} action={<Button onClick={() => attendanceSession && void loadAttendance(attendanceSession)}>Tải lại danh sách</Button>} style={{ marginBottom: 16 }} />}
+      <Form form={attendanceForm} layout="vertical" disabled={sessionSaving} onFinish={saveAttendance}>
+        <Table rowKey="enrollmentId" size="small" loading={attendanceLoading} dataSource={attendance?.students ?? []} pagination={false} scroll={{ x: 660, y: 360 }} locale={{ emptyText: attendanceError ? 'Không tải được dữ liệu' : 'Không có học viên trong buổi này' }} columns={[
+          { title: 'Học viên', key: 'student', width: 200, render: (_, row) => <><Typography.Text strong>{row.studentName}</Typography.Text><br /><Typography.Text type="secondary">{row.studentCode}</Typography.Text></> },
+          { title: 'Trạng thái', key: 'status', width: 190, render: (_, row) => {
+            const index = missingLearners.findIndex((item) => item.enrollmentId === row.enrollmentId)
+            return index < 0 ? <Tag color={row.status === null ? 'default' : row.status === 'vang' ? 'red' : 'green'}>{row.status === null ? 'Đã chốt chứng chỉ' : attendanceText(row.status)}</Tag> : <><Form.Item name={['items', index, 'enrollmentId']} hidden><Input /></Form.Item><Form.Item name={['items', index, 'status']} rules={[{ required: true, message: 'Chọn trạng thái thực tế.' }]} style={{ marginBottom: 0 }}><Select placeholder="Chọn trạng thái" aria-label={`Điểm danh ${row.studentName}`} options={attendanceOptions} /></Form.Item></>
+          } },
+          { title: 'Ghi chú', key: 'note', render: (_, row) => {
+            const index = missingLearners.findIndex((item) => item.enrollmentId === row.enrollmentId)
+            return index < 0 ? row.note || '—' : <Form.Item name={['items', index, 'note']} rules={[{ max: 255 }]} style={{ marginBottom: 0 }}><Input maxLength={255} aria-label={`Ghi chú cho ${row.studentName}`} /></Form.Item>
+          } },
+        ]} />
+        {attendance && !missingLearners.length && <Alert type="info" showIcon title="Không còn bản ghi có thể bổ sung" style={{ marginTop: 16 }} />}
+        <Form.Item name="reason" label="Lý do bổ sung điểm danh" rules={reasonRules} style={{ marginTop: 20 }}><Input.TextArea rows={3} maxLength={255} /></Form.Item>
+      </Form>
+    </Modal>
+    <Drawer title="Lịch sử xử lý buổi học" size={620} open={historySession !== null} onClose={() => { historyRequestId.current += 1; setHistorySession(null) }}>
+      {historySession && <Typography.Paragraph>{timeText(historySession.startsAt)} · {historySession.roomCode}</Typography.Paragraph>}
+      {historyError && <Alert type="error" showIcon title="Không tải được lịch sử" description={historyError} action={<Button onClick={() => historySession && void loadHistory(historySession)}>Thử lại</Button>} style={{ marginBottom: 16 }} />}
+      {historyLoading ? <Typography.Text>Đang tải lịch sử…</Typography.Text> : !historyError && <Timeline items={history.map((item) => ({ content: <><Typography.Text strong>{({ huy: 'Hủy buổi', cap_nhat: 'Dời buổi / xếp học bù', bo_sung_diem_danh: 'Bổ sung điểm danh' } as Record<string, string>)[item.action] ?? item.action}</Typography.Text><Typography.Paragraph type="secondary">{item.actorName} · {timeText(item.changedAt)}</Typography.Paragraph><Typography.Paragraph>{item.reason}</Typography.Paragraph><Descriptions size="small" column={1} bordered items={[{ key: 'before', label: 'Trước', children: historyFields(item.before) }, { key: 'after', label: 'Sau', children: historyFields(item.after) }]} /></> }))} />}
+      {!historyLoading && !historyError && !history.length && <Typography.Text type="secondary">Chưa có lịch sử xử lý buổi học.</Typography.Text>}
+    </Drawer>
     <Modal title={editing === 'new' ? 'Tạo lớp học' : 'Sửa thông tin lớp'} open={editing !== null} onCancel={() => setEditing(null)} onOk={() => form.submit()} okText={editing === 'new' ? 'Tạo lớp' : 'Cập nhật'} destroyOnHidden>
       <Form form={form} layout="vertical" onFinish={save} style={{ marginTop: 20 }}>
         <Form.Item name="code" label="Mã lớp" rules={[{ required: true, whitespace: true, message: 'Vui lòng nhập mã lớp.' }]}><Input placeholder="VD: A2-GT-10" /></Form.Item>

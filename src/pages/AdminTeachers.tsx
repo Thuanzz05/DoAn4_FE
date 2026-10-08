@@ -4,7 +4,7 @@ import { Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, Modal, S
 import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
-import { api, errorMessage, json } from '../api'
+import { ApiError, api, errorMessage, json } from '../api'
 
 type TeacherStatus = 'Đang hoạt động' | 'Đã khóa'
 type TeacherRecord = { id: number; code: string; name: string; email: string; phone: string; language: string; specialty: string; activeClasses: number; status: TeacherStatus; joined: string }
@@ -52,7 +52,23 @@ function AdminTeachers({ onLogout, onNavigate, onNavigateHome }: Props) {
     } catch (error) { messageApi.error(errorMessage(error)) }
     finally { setSaving(false) }
   }
-  const toggleStatus = (teacher: TeacherRecord) => modal.confirm({ title: teacher.status === 'Đang hoạt động' ? 'Khóa tài khoản?' : 'Mở khóa tài khoản?', content: teacher.activeClasses > 0 ? `${teacher.name} đang phụ trách ${teacher.activeClasses} lớp.` : teacher.name, okText: 'Xác nhận', onOk: async () => { try { await api(`/users/${teacher.id}/status?force=true`, json('PATCH', { active: teacher.status !== 'Đang hoạt động' })); await load(); setSelected(null); messageApi.success('Đã cập nhật trạng thái tài khoản.') } catch (error) { messageApi.error(errorMessage(error)) } } })
+  const toggleStatus = (teacher: TeacherRecord) => {
+    const locking = teacher.status === 'Đang hoạt động'
+    modal.confirm({
+      title: locking ? 'Khóa tài khoản giáo viên?' : 'Mở khóa tài khoản giáo viên?',
+      content: <><Typography.Paragraph>{teacher.name}{teacher.activeClasses > 0 ? ` đang phụ trách ${teacher.activeClasses} lớp, gồm các buổi dạy thay sắp tới.` : ''}</Typography.Paragraph>{locking && <Typography.Paragraph>Hãy bổ sung điểm danh còn thiếu trong Quản lý lớp học trước khi khóa. Sau khi khóa, cần phân công giáo viên thay thế cho các lớp và buổi tương lai.</Typography.Paragraph>}</>,
+      okText: locking ? 'Khóa tài khoản' : 'Mở khóa', okButtonProps: { danger: locking },
+      onOk: async () => {
+        try {
+          await api(`/users/${teacher.id}/status${locking && teacher.activeClasses > 0 ? '?force=true' : ''}`, json('PATCH', { active: !locking }))
+          await load(); setSelected(null); messageApi.success('Đã cập nhật trạng thái tài khoản.')
+        } catch (error) {
+          if (error instanceof ApiError && error.code === 'ATTENDANCE_BACKLOG') modal.warning({ title: 'Cần xử lý điểm danh trước khi khóa', content: <><Typography.Paragraph>{error.message}</Typography.Paragraph><Typography.Paragraph>Mở chi tiết lớp, chọn tab Buổi học rồi Bổ sung điểm danh. Các bản ghi đã có được giữ nguyên; lý do xử lý được lưu trong lịch sử.</Typography.Paragraph></>, okText: 'Mở quản lý lớp học', onOk: () => { setSelected(null); onNavigate('classes') } })
+          else messageApi.error(errorMessage(error))
+        }
+      },
+    })
+  }
   const resetPassword = (teacher: TeacherRecord) => modal.confirm({ title: 'Đặt lại mật khẩu giáo viên?', content: `Gửi mật khẩu tạm tới ${teacher.email} và vô hiệu hóa các phiên đăng nhập cũ.`, okText: 'Đặt lại mật khẩu', onOk: async () => { try { const result = await api<{ emailSent: boolean; devTemporaryPassword?: string }>(`/users/${teacher.id}/reset-password`, { method: 'POST' }); if (result.emailSent) messageApi.success(`Đã gửi mật khẩu tới ${teacher.email}`); else modal.warning({ title: 'Đã đặt lại mật khẩu', content: <><Typography.Paragraph>Email chưa được cấu hình. Bàn giao riêng mật khẩu tạm cho giáo viên.</Typography.Paragraph><Typography.Text copyable>{result.devTemporaryPassword}</Typography.Text></> }) } catch (error) { messageApi.error(errorMessage(error)) } } })
   const columns: TableProps<TeacherRecord>['columns'] = [
     { title: 'Giáo viên', key: 'teacher', render: (_, item) => <div className="admin-entity"><Avatar shape="square">{item.name.split(' ').slice(-2).map((part) => part[0]).join('')}</Avatar><div><strong>{item.name}</strong><small>{item.code}</small></div></div> },
