@@ -86,7 +86,7 @@
 .home-page .home-footer small { display: block; max-width: 60ch; margin-top: 10px; color: var(--ink-soft); font-size: 11px; }
 .home-page .home-footer-links { display: grid; gap: 10px; padding-top: 6px; }
 .home-page .home-footer-links a { color: var(--accent); font-size: 13px; text-decoration: underline; text-underline-offset: 4px; }
-.home-page .advisor-trigger { position: static; min-height: 44px; padding: 9px 16px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); background: var(--white); box-shadow: none; font-size: 13px; font-weight: 700; white-space: nowrap; }
+.home-page .advisor-trigger { position: fixed; right: 24px; bottom: 24px; min-height: 44px; padding: 9px 16px; border: 1px solid var(--accent); border-radius: 6px; color: var(--accent); background: var(--white); box-shadow: 0 10px 28px rgba(35, 78, 112, 0.18); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .home-page .advisor-trigger svg { color: var(--accent); }
 .home-page .advisor-trigger:hover { background: var(--paper); }
 .home-page .advisor-dialog, .home-page .advisor-mark, .home-page .advisor-compose, .home-page .advisor-compose button, .home-page .advisor-suggestions button, .home-page .advisor-message p, .home-page .advisor-header > button { border-radius: 6px; }
@@ -133,7 +133,7 @@
   .home-page .home-quick-access { grid-template-columns: 1fr; gap: 28px; padding-block: 40px 32px; }
   .home-page .home-footer-content { grid-template-columns: 1fr; gap: 20px; }
   .home-page .home-footer-links { display: flex; flex-wrap: wrap; gap: 12px 24px; }
-  .home-page .advisor-trigger { justify-self: start; }
+  .home-page .advisor-trigger { right: 14px; bottom: 14px; }
   .home-page .advisor-dialog { border-radius: 6px 6px 0 0; }
 }
 

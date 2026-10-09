@@ -7,6 +7,7 @@ import { ESLint } from 'eslint'
 
 const source = readFileSync(new URL('../src/pages/HomePage.tsx', import.meta.url), 'utf8')
 const css = readFileSync(new URL('../src/pages/HomePage.css', import.meta.url), 'utf8')
+const advisorSource = readFileSync(new URL('../src/CourseAdvisor.tsx', import.meta.url), 'utf8')
 const jsx = (type, props) => ({ type, props })
 const nodes = (value) => !value || typeof value !== 'object' ? [] : [...(value.type && value.props ? [value] : []), ...Object.values(value).flatMap(nodes)]
 const text = (value) => value == null || typeof value === 'boolean' ? '' : Array.isArray(value) ? value.map(text).join('') : typeof value === 'object' ? text(value.props?.children) : String(value)
@@ -117,6 +118,9 @@ for (const [chunk, payload] of [['VP8 ', '0000009d012a41017b00'], ['VP8L', '2f40
   assert.deepEqual(imageDimensions(fixture), [321, 123], `${chunk.trim()} dimensions are decoded correctly`)
 }
 assert.deepEqual([hero.width, hero.height], imageDimensions(image), 'declared intrinsic dimensions match the actual hero asset')
+assert.match(css, /\.home-page \.advisor-trigger\s*\{[^}]*position:\s*fixed;[^}]*right:\s*24px;[^}]*bottom:\s*24px;/s, 'course advisor stays pinned to the bottom-right corner')
+assert.doesNotMatch(advisorSource, /length\s*<\s*5|minLength=\{5\}/, 'course advisor accepts short non-empty questions')
+assert.match(advisorSource, /disabled=\{!question\.trim\(\) \|\| loading\}/, 'send is disabled only for blank or pending questions')
 assert.doesNotMatch(source, /TODO|FIXME|tự code tiếp/i, 'no unfinished placeholder implementation')
 const config = await new ESLint().calculateConfigForFile('src/pages/HomePage.tsx')
 assert.equal(config.rules['no-warning-comments'][0], 2, 'unfinished comments fail lint')

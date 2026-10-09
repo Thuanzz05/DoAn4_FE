@@ -27,7 +27,7 @@ function CourseAdvisor() {
   const ask = async (event?: FormEvent) => {
     event?.preventDefault()
     const value = question.trim()
-    if (value.length < 5 || loading) return
+    if (!value || loading) return
     setMessages((current) => [...current, { role: 'user', content: value }])
     setQuestion('')
     setError('')
@@ -79,14 +79,14 @@ function CourseAdvisor() {
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
           onKeyDown={submitOnEnter}
-          minLength={5}
+          required
           maxLength={1000}
           rows={2}
           placeholder="Ví dụ: Tôi muốn học tiếng Anh giao tiếp..."
           aria-label="Nhu cầu học ngoại ngữ"
           autoFocus
         />
-        <button type="submit" disabled={question.trim().length < 5 || loading} aria-label="Gửi câu hỏi">
+        <button type="submit" disabled={!question.trim() || loading} aria-label="Gửi câu hỏi">
           <PaperPlaneTilt weight="fill" aria-hidden="true" />
         </button>
       </form>
