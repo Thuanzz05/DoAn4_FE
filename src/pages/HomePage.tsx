@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react'
+import { useEffect, useRef, type MouseEvent } from 'react'
 import { ArrowRight, CalendarBlank, Certificate, GraduationCap, IdentificationCard, Receipt, UsersThree } from '@phosphor-icons/react'
 import { Collapse, ConfigProvider, Tabs } from 'antd'
 import heroImage from '../assets/language-classroom-v2.webp'
@@ -36,12 +36,44 @@ const roles = [
 ]
 
 export default function HomePage({ onLogin, onRegister, onVerifyCertificate }: Props) {
+  const pageRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)')
+    if (motion.matches || !('IntersectionObserver' in window)) return
+
+    const blocks = Array.from(pageRef.current?.querySelectorAll<HTMLElement>('[data-home-reveal]') ?? [])
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        entry.target.classList.remove('home-reveal-pending')
+        observer.unobserve(entry.target)
+      }
+    }, { rootMargin: '0px 0px -48px 0px' })
+
+    for (const block of blocks) {
+      if (block.getBoundingClientRect().top < window.innerHeight) continue
+      block.classList.add('home-reveal-pending')
+      observer.observe(block)
+    }
+
+    const revealAll = () => {
+      observer.disconnect()
+      blocks.forEach((block) => block.classList.remove('home-reveal-pending'))
+    }
+    motion.addEventListener('change', revealAll)
+    return () => {
+      motion.removeEventListener('change', revealAll)
+      revealAll()
+    }
+  }, [])
+
   const open = (event: MouseEvent<HTMLAnchorElement>, action: () => void) => {
     if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
     event.preventDefault(); action()
   }
 
-  return <div className="home-page" id="top">
+  return <div className="home-page" id="top" ref={pageRef}>
     <a className="home-skip-link" href="#home-content">Bỏ qua menu</a>
     <header className="home-header home-container">
       <a className="wordmark" href="#top"><span>Trung tâm</span><small>Hệ thống quản lý ngoại ngữ</small></a>
@@ -69,7 +101,7 @@ export default function HomePage({ onLogin, onRegister, onVerifyCertificate }: P
         </figure>
       </section>
 
-      <section className="home-roles home-container" id="vai-tro" aria-labelledby="roles-title">
+      <section className="home-roles home-container" id="vai-tro" aria-labelledby="roles-title" data-home-reveal>
         <div className="home-roles-heading">
           <h2 id="roles-title">Thông tin đúng với vai trò của bạn.</h2>
           <p>Mỗi tài khoản có một vai trò và phạm vi thông tin riêng.</p>
@@ -87,10 +119,10 @@ export default function HomePage({ onLogin, onRegister, onVerifyCertificate }: P
 
       <section className="home-information" id="van-hanh" aria-labelledby="operations-title">
         <div className="home-container home-information-layout">
-          <figure className="home-center-photo">
+          <figure className="home-center-photo" data-home-reveal>
             <img src={centerImage} width={1448} height={1086} loading="lazy" decoding="async" alt="Ảnh minh họa không gian tiếp nhận học viên và phòng học" />
           </figure>
-          <div className="home-functions">
+          <div className="home-functions" data-home-reveal>
             <h2 id="operations-title">Từ ghi danh đến nhận chứng chỉ.</h2>
             <p>Hệ thống hỗ trợ nhiều ngoại ngữ, lưu tập trung hồ sơ, lớp học và kết quả theo từng khóa.</p>
             <ConfigProvider theme={{ token: { colorPrimary: '#234e70', colorText: '#202b33', fontFamily: "'Manrope', sans-serif", borderRadius: 6 } }}>
@@ -109,7 +141,7 @@ export default function HomePage({ onLogin, onRegister, onVerifyCertificate }: P
       </section>
 
       <section className="home-quick-access home-container" aria-label="Thông tin dành cho người truy cập">
-        <div className="home-new-student">
+        <div className="home-new-student" data-home-reveal>
           <IdentificationCard size={30} aria-hidden="true" />
           <div>
             <h2>Bạn mới đến trung tâm?</h2>
@@ -117,7 +149,7 @@ export default function HomePage({ onLogin, onRegister, onVerifyCertificate }: P
             <a className="home-link" href="/register" onClick={(event) => open(event, onRegister)}>Tạo tài khoản <ArrowRight size={17} aria-hidden="true" /></a>
           </div>
         </div>
-        <div className="home-certificate-access">
+        <div className="home-certificate-access" data-home-reveal>
           <Certificate size={30} aria-hidden="true" />
           <div>
             <h2>Kiểm tra một chứng chỉ.</h2>
