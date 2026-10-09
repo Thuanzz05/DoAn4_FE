@@ -1,6 +1,4 @@
 .teacher-grades-alert { margin-top: 24px; }
-.teacher-grades-alert.ant-alert-info { border-color: #cbdccf; background: #edf3ed; }
-.teacher-grades-alert.ant-alert-info .ant-alert-icon { color: #397359; }
 .grades-filter-card { margin-top: 16px; border-color: #dbe3dc; }
 .grades-filter-card label { display: flex; min-width: 260px; flex-direction: column; gap: 7px; }
 .grades-filter-card label > .ant-typography { color: #64766f; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowClockwise, CaretRight, Certificate, FilePdf, GraduationCap, MagnifyingGlass, Receipt, ShieldCheck, XCircle } from '@phosphor-icons/react'
-import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, Modal, Segmented, Select, Space, Table, Tabs, Tag, Typography, message } from 'antd'
+import { Alert, Avatar, Button, Card, Descriptions, Drawer, Flex, Form, Input, Modal, Segmented, Select, Space, Table, Tabs, Tag, Tooltip, Typography, message } from 'antd'
 import type { TableProps } from 'antd'
 import AdminLayout, { type AdminPage } from './AdminLayout'
 import { AdminPageHeader, AdminSummary } from './AdminPageKit'
@@ -62,6 +62,15 @@ function AdminCertificates({ onLogout, onNavigate, onNavigateHome }: Props) {
   }), [candidates, classCode, filter, query])
   const approvalTargets = data.filter((item) => approvalIds.includes(item.id) && eligible(item) && item.status === 'Chờ xét')
   const issueTargets = data.filter((item) => issueIds.includes(item.id) && eligible(item) && item.status === 'Đã xác nhận' && item.certificateId !== null)
+  const selectionReason = (item: Candidate) => {
+    if (item.status === 'Đã cấp') return 'Chứng chỉ đã cấp. Mở hồ sơ để xem hoặc tải PDF.'
+    if (!eligible(item)) return item.ineligibleReasons.join('; ') || 'Hồ sơ chưa đủ điều kiện cấp chứng chỉ.'
+    if (selectionMode === 'approve') return item.status === 'Chờ xét' ? null : 'Hồ sơ đã duyệt. Chuyển sang “Chọn để phát hành PDF”.'
+    return item.status === 'Đã xác nhận' && item.certificateId !== null ? null : 'Cần duyệt hồ sơ trước khi phát hành PDF.'
+  }
+  const selectableTargets = data.filter((item) => selectionReason(item) === null)
+  const selectedTargets = selectionMode === 'approve' ? approvalTargets : issueTargets
+  const setSelectedIds = selectionMode === 'approve' ? setApprovalIds : setIssueIds
   // Các lựa chọn chỉ có hiệu lực trong bộ lọc hiện tại và đúng trạng thái thao tác.
   useEffect(() => {
     if (loading || loadError) return
@@ -147,7 +156,19 @@ function AdminCertificates({ onLogout, onNavigate, onNavigateHome }: Props) {
     {!!issueFailures.length && <Alert type="warning" showIcon title={`${issueFailures.length} hồ sơ chưa phát hành`} description={<><Typography.Paragraph>Hồ sơ lỗi trong bộ lọc hiện tại được giữ ở chế độ “Chọn để phát hành PDF”. Nếu đổi bộ lọc, hãy tìm và chọn lại hồ sơ cần thử lại; chứng chỉ đã cấp không bị cấp lại.</Typography.Paragraph>{issueFailures.map((item) => <div key={item.id}><Typography.Text strong>{item.studentName}: </Typography.Text>{item.error}</div>)}</>} style={{ marginBottom: 16 }} />}
     <Card className="admin-table-card" title="Danh sách xét cấp" extra={<Space wrap><Input disabled={pending !== null} allowClear prefix={<MagnifyingGlass />} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Học viên, lớp hoặc mã" /><Select disabled={pending !== null} value={filter} onChange={setFilter} options={['Tất cả', 'Đủ điều kiện', 'Không đủ điều kiện', 'Đã cấp'].map((value) => ({ value, label: value }))} /><Select disabled={pending !== null} value={classCode} onChange={setClassCode} options={[{ value: 'Tất cả', label: 'Tất cả lớp' }, ...[...new Map(candidates.map((item) => [item.classCode, item.className])).entries()].map(([value, name]) => ({ value, label: `${value} · ${name}` }))]} /></Space>}>
       <Space wrap style={{ marginBottom: 16 }}><Segmented disabled={blocked} value={selectionMode} onChange={(value) => setSelectionMode(value as 'approve' | 'issue')} options={[{ value: 'approve', label: 'Chọn để duyệt' }, { value: 'issue', label: 'Chọn để phát hành PDF' }]} /><Typography.Text type="secondary">{selectionMode === 'approve' ? 'Chỉ chọn hồ sơ Chờ xét đủ điều kiện.' : 'Chỉ chọn hồ sơ Đã xác nhận đủ điều kiện.'} Lựa chọn ngoài bộ lọc sẽ được bỏ.</Typography.Text></Space>
-      <Table rowKey="id" columns={columns} loading={loading} dataSource={loadError ? [] : data} scroll={{ x: 940 }} rowSelection={{ selectedRowKeys: (selectionMode === 'approve' ? approvalTargets : issueTargets).map((item) => item.id), onChange: selectionMode === 'approve' ? setApprovalIds : setIssueIds, getCheckboxProps: (item) => ({ disabled: blocked || !eligible(item) || (selectionMode === 'approve' ? item.status !== 'Chờ xét' : item.status !== 'Đã xác nhận' || item.certificateId === null) }) }} pagination={{ pageSize: 6, showTotal: (total) => `${total} học viên` }} />
+      <Flex wrap align="center" justify="space-between" gap={12} style={{ marginBottom: 16 }}>
+        <Space wrap>
+          <Button disabled={blocked || !selectableTargets.length || selectedTargets.length === selectableTargets.length} onClick={() => { if (!blocked && !mutationRef.current) setSelectedIds(selectableTargets.map((item) => item.id)) }}>Chọn tất cả hồ sơ hợp lệ ({loading || loadError ? 0 : selectableTargets.length})</Button>
+          <Button disabled={blocked || !selectedTargets.length} onClick={() => { if (!blocked && !mutationRef.current) setSelectedIds([]) }}>Bỏ chọn</Button>
+          <Typography.Text type="secondary">Trên tất cả các trang trong bộ lọc hiện tại.</Typography.Text>
+        </Space>
+        <Typography.Text strong aria-live="polite">Đã chọn {loading || loadError ? 0 : selectedTargets.length} hồ sơ</Typography.Text>
+      </Flex>
+      {!blocked && data.length > 0 && selectableTargets.length === 0 && <Alert type="info" showIcon title={`Không có hồ sơ có thể ${selectionMode === 'approve' ? 'duyệt' : 'phát hành PDF'} trong bộ lọc này`} description="Di chuột hoặc nhấn Tab đến ô chọn bị khóa để xem lý do. Mở chi tiết hồ sơ để kiểm tra điều kiện và trạng thái chứng chỉ." style={{ marginBottom: 16 }} />}
+      <Table rowKey="id" columns={columns} loading={loading} dataSource={loadError ? [] : data} scroll={{ x: 940 }} rowSelection={{ type: 'checkbox', selectedRowKeys: selectedTargets.map((item) => item.id), onChange: setSelectedIds, getCheckboxProps: (item) => ({ disabled: blocked || selectionReason(item) !== null }), renderCell: (_checked, item, _index, checkbox) => {
+        const reason = selectionReason(item)
+        return reason ? <Tooltip title={reason} trigger={['hover', 'focus']}><span tabIndex={0} aria-label={`Không thể chọn hồ sơ ${item.studentName}, lớp ${item.className}: ${reason}`}>{checkbox}</span></Tooltip> : checkbox
+      } }} pagination={{ pageSize: 6, showTotal: (total) => `${total} hồ sơ` }} />
     </Card>
     </>}
     <Drawer size={460} title="Hồ sơ xét cấp" open={detailId !== null} onClose={() => pending === null && setDetailId(null)} closable={pending === null} loading={loading} extra={<Button disabled={pending !== null} loading={loading} icon={<ArrowClockwise />} onClick={() => void load()}>Tải lại hồ sơ</Button>}>

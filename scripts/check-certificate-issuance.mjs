@@ -51,7 +51,7 @@ function harness(initial) {
     return { id }
   }
   const form = { setFieldsValue() {}, submit() {} }
-  const antd = Object.fromEntries(['Alert', 'Avatar', 'Button', 'Card', 'Descriptions', 'Drawer', 'Flex', 'Segmented', 'Select', 'Space', 'Table', 'Tabs', 'Tag'].map((name) => [name, name]))
+  const antd = Object.fromEntries(['Alert', 'Avatar', 'Button', 'Card', 'Descriptions', 'Drawer', 'Flex', 'Segmented', 'Select', 'Space', 'Table', 'Tabs', 'Tag', 'Tooltip'].map((name) => [name, name]))
   Object.assign(antd, {
     Input: Object.assign(() => {}, { TextArea: 'TextArea' }),
     Typography: { Text: 'Text', Paragraph: 'Paragraph', Title: 'Title' },
@@ -102,6 +102,8 @@ page.confirmations[0].onOk()
 await page.flush()
 assert.equal(page.button('Phát hành đã chọn').disabled, true)
 assert.equal(page.find('Segmented').disabled, true)
+assert.equal(page.button('Chọn tất cả hồ sơ hợp lệ').disabled, true)
+assert.equal(page.button('Bỏ chọn').disabled, true)
 assert.deepEqual(page.calls.filter((call) => call.path.endsWith('/issue')).map((call) => call.path), ['/certificates/102/issue', '/certificates/104/issue'], 'never issues outside selection; duplicate onOk writes nothing')
 page.setLoadFailure(true)
 release(); await first.request; first.close(); await page.flush()
@@ -148,4 +150,41 @@ approval.button('Xác nhận đã chọn').onClick()
 const approved = approval.confirm(); await approved.request; approved.close(); await approval.flush()
 assert.deepEqual(JSON.parse(approval.calls.find((call) => call.path === '/certificates/approve').options.body).enrollmentIds, [10])
 assert.equal(approval.find('Table').rowSelection.selectedRowKeys.length, 0, 'approved row is pruned from approval selection')
-console.log('PASS: selected scope, separate approvals, duplicate/pending guards, partial retry, drawer refresh, load failure/retry')
+
+const bulkRows = Array.from({ length: 8 }, (_, index) => row(20 + index, null, index === 7 ? 'B' : 'A'))
+bulkRows[1].studentCode = bulkRows[0].studentCode
+bulkRows[1].studentName = bulkRows[0].studentName
+const bulk = harness([...bulkRows, row(28, 'da_cap'), row(29, null, 'A', false), row(30), { ...row(31), certificateId: null }])
+await bulk.flush()
+bulk.find('Table').rowSelection.onChange([20]); await bulk.flush()
+bulk.find('Table').rowSelection.onChange([20, 21]); await bulk.flush()
+assert.deepEqual(Array.from(bulk.find('Table').rowSelection.selectedRowKeys), [20, 21], 'same student in two enrollments can be selected independently')
+bulk.button('Chọn tất cả hồ sơ hợp lệ').onClick(); await bulk.flush()
+assert.deepEqual(Array.from(bulk.find('Table').rowSelection.selectedRowKeys), bulkRows.map((item) => item.enrollmentId), 'select-all includes eligible records beyond page size and excludes issued/ineligible/approved records')
+assert.equal(bulk.button('Chọn tất cả hồ sơ hợp lệ').disabled, true, 'select-all reports that all eligible records are selected')
+bulk.selectClass('A'); await bulk.flush()
+assert.equal(bulk.find('Table').rowSelection.selectedRowKeys.length, 7, 'filter removes selected records outside its scope')
+bulk.find('Segmented').onChange('issue'); await bulk.flush()
+bulk.button('Chọn tất cả hồ sơ hợp lệ').onClick(); await bulk.flush()
+assert.deepEqual(Array.from(bulk.find('Table').rowSelection.selectedRowKeys), [30], 'PDF selection requires approved record with a certificate ID')
+bulk.button('Bỏ chọn').onClick(); await bulk.flush()
+assert.equal(bulk.find('Table').rowSelection.selectedRowKeys.length, 0, 'clear removes the current mode selection')
+bulk.find('Segmented').onChange('approve'); await bulk.flush()
+assert.equal(bulk.find('Table').rowSelection.selectedRowKeys.length, 7, 'clearing PDF selection does not clear approval selection')
+bulk.button('Xác nhận đã chọn').onClick()
+const bulkApproval = bulk.confirm(); await bulkApproval.request; bulkApproval.close(); await bulk.flush()
+assert.deepEqual(JSON.parse(bulk.calls.find((call) => call.path === '/certificates/approve').options.body).enrollmentIds, bulkRows.slice(0, 7).map((item) => item.enrollmentId), 'batch approval sends only the selected eligible filtered enrollment IDs')
+assert.equal(bulk.find('Table').pagination.showTotal(12), '12 hồ sơ', 'pagination counts enrollment records rather than distinct students')
+
+const locked = harness([row(40, null, 'A', false), row(41, 'da_cap')])
+await locked.flush()
+assert.equal(locked.button('Chọn tất cả hồ sơ hợp lệ').disabled, true, 'the screenshot scenario has no selectable records')
+const lockedTable = locked.find('Table')
+assert.ok(locked.find('Alert', (props) => String(props.title).startsWith('Không có hồ sơ có thể')))
+for (const item of lockedTable.dataSource) {
+  assert.equal(lockedTable.rowSelection.getCheckboxProps(item).disabled, true)
+  const cell = lockedTable.rowSelection.renderCell(false, item, 0, 'checkbox')
+  assert.match(cell.props.title, item.status === 'Đã cấp' ? /Chứng chỉ đã cấp/ : /Hồ sơ chưa đạt/, 'disabled checkbox explains its reason')
+  assert.equal(cell.props.children.props.tabIndex, 0, 'disabled reason is accessible by keyboard')
+}
+console.log('PASS: multi-selection across filtered pages, selection reasons, selected scope, separate approvals, duplicate/pending guards, partial retry, drawer refresh, load failure/retry')
