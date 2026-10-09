@@ -1,15 +1,10 @@
-import { FormEvent, useEffect, useRef, useState } from 'react'
+import { type FormEvent, type MouseEvent, useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
-  ArrowRight,
   Eye,
   EyeSlash,
-  LockKey,
-  ShieldCheck,
-  UserCircle,
 } from '@phosphor-icons/react'
-import { Alert, Button, Input, Modal, Space, Typography } from 'antd'
-import heroImage from '../assets/language-center-hero.png'
+import { Alert, Button, ConfigProvider, Input, Modal, Space, Typography } from 'antd'
 import { api, errorMessage, json, saveSession, type AuthSession } from '../api'
 import GoogleIdentityButton from '../GoogleIdentityButton'
 import './LoginPage.css'
@@ -36,6 +31,13 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
   const [resendSeconds, setResendSeconds] = useState(0)
   const resetRequest = useRef(0)
   const resetPending = useRef(false)
+  const submitPending = useRef(false)
+
+  const open = (event: MouseEvent<HTMLAnchorElement>, action: () => void) => {
+    if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+    event.preventDefault()
+    action()
+  }
 
   useEffect(() => () => { resetRequest.current += 1 }, [])
   useEffect(() => {
@@ -44,13 +46,17 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
     return () => window.clearTimeout(timer)
   }, [resendSeconds])
   const handleGoogle = async (credential: string) => {
+    if (submitPending.current) return
+    submitPending.current = true
     setIsSubmitting(true); setStatus('')
     try { const session = await api<AuthSession>('/auth/google', json('POST', { credential })); saveSession(session, remember); onAuthenticated(session) }
     catch (error) { setStatus(errorMessage(error)) }
-    finally { setIsSubmitting(false) }
+    finally { submitPending.current = false; setIsSubmitting(false) }
   }
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (submitPending.current) return
+    submitPending.current = true
     setStatus('')
     setIsSubmitting(true)
     const formData = new FormData(event.currentTarget)
@@ -64,6 +70,7 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
     } catch (error) {
       setStatus(errorMessage(error))
     } finally {
+      submitPending.current = false
       setIsSubmitting(false)
     }
   }
@@ -132,49 +139,48 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
   }
 
   return (
-    <div className="login-page-shell">
+    <ConfigProvider theme={{ token: { colorPrimary: '#234e70', colorText: '#202b33', colorTextSecondary: '#52616d', colorTextPlaceholder: '#52616d', colorBorder: '#82919e', fontFamily: "'Manrope', sans-serif", borderRadius: 6, controlHeight: 44 } }}>
+    <div className="login-page-shell auth-page">
+      <a className="auth-skip-link" href="#auth-content">Bỏ qua menu</a>
       <header className="login-page-header">
-        <a className="wordmark" href="/" onClick={(event) => { event.preventDefault(); onNavigateHome() }} aria-label="Về trang chủ">
+        <a className="wordmark" href="/" onClick={(event) => open(event, onNavigateHome)}>
           <span>Trung tâm</span>
           <small>Hệ thống quản lý ngoại ngữ</small>
         </a>
-        <button className="login-back" type="button" onClick={onNavigateHome}>
-          <ArrowLeft aria-hidden="true" weight="bold" />
+        <a className="login-back" href="/" onClick={(event) => open(event, onNavigateHome)}>
+          <ArrowLeft aria-hidden="true" />
           Về trang chủ
-        </button>
+        </a>
       </header>
 
-      <main className="login-page-main">
-        <section className="login-story" aria-labelledby="login-story-title">
-          <div className="login-story-copy">
-            <ShieldCheck aria-hidden="true" weight="duotone" />
-            <h1 id="login-story-title">Đúng tài khoản. Đúng không gian làm việc.</h1>
-            <p>Mỗi vai trò chỉ truy cập những dữ liệu và chức năng được trung tâm phân quyền.</p>
-          </div>
-          <figure className="login-photo">
-            <img src={heroImage} alt="Không gian làm việc và lớp học tại trung tâm ngoại ngữ" loading="lazy" decoding="async" />
-            <figcaption>Học vụ, tài chính và kết quả học tập được kết nối trong cùng hệ thống.</figcaption>
-          </figure>
-        </section>
-
+      <main className="login-page-main" id="auth-content" tabIndex={-1}>
         <section className="login-entry" aria-labelledby="login-title">
           <div className="login-form-wrap">
+            <nav className="auth-route-nav" aria-label="Tài khoản">
+              <a href="/login" aria-current="page">Đăng nhập</a>
+              <a href="/register" onClick={(event) => open(event, onNavigateRegister)}>Đăng ký</a>
+            </nav>
             <div className="login-form-heading">
-              <div className="login-form-icon"><UserCircle aria-hidden="true" weight="duotone" /></div>
-              <h2 id="login-title">Đăng nhập</h2>
-              <p>Sử dụng tài khoản do trung tâm cấp cho bạn.</p>
+              <h1 id="login-title">Đăng nhập</h1>
+              <p>Truy cập lịch học, kết quả và thông tin tài khoản.</p>
             </div>
 
-            <form className="login-form" onSubmit={handleSubmit}>
+            <form className="login-form" onSubmit={handleSubmit} aria-busy={isSubmitting} aria-describedby={status ? 'login-feedback' : undefined}>
+              <div className="auth-field">
               <label htmlFor="login-username">Tên đăng nhập</label>
               <input
                 id="login-username"
                 name="username"
                 autoComplete="username"
                 required
+                disabled={isSubmitting}
+                aria-describedby="login-account-help"
                 placeholder="Nhập tên đăng nhập"
               />
+              <small id="login-account-help">Dùng email hoặc mã người dùng do trung tâm cấp.</small>
+              </div>
 
+              <div className="auth-field">
               <label htmlFor="login-password">Mật khẩu</label>
               <div className="password-field">
                 <input
@@ -183,10 +189,12 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   required
+                  disabled={isSubmitting}
                   placeholder="Nhập mật khẩu"
                 />
                 <button
                   type="button"
+                  disabled={isSubmitting}
                   onClick={() => setShowPassword((current) => !current)}
                   aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                   title={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
@@ -194,34 +202,25 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
                   {showPassword ? <EyeSlash aria-hidden="true" /> : <Eye aria-hidden="true" />}
                 </button>
               </div>
+              </div>
 
               <div className="login-options">
                 <label className="remember-option">
-                  <input type="checkbox" name="remember" checked={remember} onChange={(event) => setRemember(event.target.checked)} />
+                  <input type="checkbox" name="remember" disabled={isSubmitting} checked={remember} onChange={(event) => setRemember(event.target.checked)} />
                   <span>Ghi nhớ đăng nhập</span>
                 </label>
-                <button type="button" onClick={() => setForgotOpen(true)}>Quên mật khẩu?</button>
+                <button type="button" disabled={isSubmitting} onClick={() => setForgotOpen(true)}>Quên mật khẩu?</button>
               </div>
 
+              {status && <p className="login-feedback" role="status" id="login-feedback">{status}</p>}
               <button className="login-submit" type="submit" disabled={isSubmitting}>
                 <span>{isSubmitting ? 'Đang kiểm tra...' : 'Đăng nhập'}</span>
-                <ArrowRight aria-hidden="true" weight="bold" />
               </button>
             </form>
 
             {import.meta.env.VITE_GOOGLE_CLIENT_ID && <><div className="login-divider"><span>hoặc</span></div><GoogleIdentityButton className="login-google" onCredential={handleGoogle} /></>}
 
-            {status && (
-              <p className="login-feedback" role="status">
-                <LockKey aria-hidden="true" weight="fill" />
-                <span>{status}</span>
-              </p>
-            )}
-
-            <div className="login-support">
-              <span>Chưa có tài khoản học viên?</span>
-              <button type="button" onClick={onNavigateRegister}>Đăng ký ngay <ArrowRight aria-hidden="true" weight="bold" /></button>
-            </div>
+            <p className="auth-account-note">Quản trị viên, giáo viên và học viên dùng chung trang đăng nhập. Hệ thống mở đúng không gian của bạn.</p>
           </div>
         </section>
       </main>
@@ -240,20 +239,25 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
         onOk={() => void (resetCodeSent ? handleResetPassword() : handleForgotPassword())}
         destroyOnHidden
       >
-        <Space orientation="vertical" size="middle" style={{ width: '100%', marginTop: 12 }}>
+        <Space className="auth-reset-form" orientation="vertical" size="middle" style={{ width: '100%', marginTop: 12 }}>
+          <div className="auth-reset-field">
+          <label htmlFor="reset-email">Email đã đăng ký</label>
           <Input
+            id="reset-email"
             type="email"
             value={resetEmail}
             onChange={(event) => setResetEmail(event.target.value)}
             placeholder="Email đã đăng ký"
             disabled={resetCodeSent || resetLoading}
+            autoComplete="email"
             autoFocus
           />
+          </div>
           {resetCodeSent && <>
             {devCode && <Alert type="info" showIcon title={`Mã kiểm thử: ${devCode}`} />}
             <Typography.Text type="secondary">Mã có hiệu lực trong 10 phút. Nếu gửi lại, chỉ mã mới nhất còn hiệu lực.</Typography.Text>
-            <Input value={resetCode} onChange={(event) => setResetCode(event.target.value)} placeholder="Mã xác nhận" inputMode="numeric" maxLength={6} autoComplete="one-time-code" disabled={resetLoading} />
-            <Input.Password value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Mật khẩu mới (ít nhất 8 ký tự)" autoComplete="new-password" disabled={resetLoading} />
+            <div className="auth-reset-field"><label htmlFor="reset-code">Mã xác nhận</label><Input id="reset-code" value={resetCode} onChange={(event) => setResetCode(event.target.value)} placeholder="Mã gồm 6 chữ số" inputMode="numeric" maxLength={6} autoComplete="one-time-code" disabled={resetLoading} /></div>
+            <div className="auth-reset-field"><label htmlFor="reset-password">Mật khẩu mới</label><Input.Password id="reset-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} placeholder="Ít nhất 8 ký tự" autoComplete="new-password" disabled={resetLoading} aria-describedby="reset-password-help" /><small id="reset-password-help">Dùng ít nhất 8 ký tự.</small></div>
             <Space wrap>
               <Button onClick={() => void handleForgotPassword()} disabled={resetLoading || resendSeconds > 0}>{resendSeconds > 0 ? `Gửi lại mã sau ${resendSeconds}s` : 'Gửi lại mã'}</Button>
               <Button disabled={resetLoading} onClick={() => { setResetCodeSent(false); setResetCode(''); setNewPassword(''); setDevCode(''); setForgotError('') }}>Sửa email</Button>
@@ -264,6 +268,7 @@ function LoginPage({ onNavigateHome, onNavigateRegister, onAuthenticated }: Logi
         </Space>
       </Modal>
     </div>
+    </ConfigProvider>
   )
 }
 
