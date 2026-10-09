@@ -19,6 +19,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      'no-warning-comments': ['error', { terms: ['todo', 'fixme'], location: 'anywhere' }],
       'react-refresh/only-export-components': [
         'warn',
         { allowConstantExport: true },

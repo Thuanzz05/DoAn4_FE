@@ -146,8 +146,7 @@ assert.equal(JSON.parse(register.calls[0].options.body).phone, '0912345678')
 
 const home = harness('../src/App.tsx')
 await home.flush()
-const verifyLink = home.find('a', (props) => props.href === '/verify-certificate')
-verifyLink.onClick({ preventDefault() {} }); await home.flush()
+home.find('./pages/HomePage').onVerifyCertificate(); await home.flush()
 assert.equal(home.window.location.pathname, '/verify-certificate')
 assert.equal(home.all('./pages/CertificateVerification').length, 1, 'public certificate link navigates without authentication')
 const invoiceRow = { id: 1, code: 'HD1', enrollmentId: 1, studentCode: 'HV1', studentName: 'Học viên', classId: 1, classCode: 'A', className: 'Lớp A', courseName: 'Tiếng Anh', amount: 1000000, issuedAt: '2026-10-08', dueDate: '2026-10-10', status: 'chua_thanh_toan', paidAt: null, paymentMethod: null, cancellationReason: null }

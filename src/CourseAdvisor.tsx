@@ -1,5 +1,5 @@
 import { type FormEvent, type KeyboardEvent, useEffect, useRef, useState } from 'react'
-import { ChatCircleText, PaperPlaneTilt, Sparkle, X } from '@phosphor-icons/react'
+import { ChatCircleText, PaperPlaneTilt, X } from '@phosphor-icons/react'
 import { api, errorMessage, json } from './api'
 
 type Message = { role: 'assistant' | 'user'; content: string }
@@ -51,14 +51,14 @@ function CourseAdvisor() {
 
   return <>
     <button className="advisor-trigger" type="button" onClick={() => dialog.current?.showModal()}>
-      <Sparkle weight="fill" aria-hidden="true" />
+      <ChatCircleText aria-hidden="true" />
       <span>Tư vấn khóa học</span>
     </button>
 
     <dialog className="advisor-dialog" ref={dialog} aria-labelledby="advisor-title">
       <header className="advisor-header">
-        <div className="advisor-mark"><Sparkle weight="fill" aria-hidden="true" /></div>
-        <div><h2 id="advisor-title">Trợ lý chọn khóa học</h2><p>Gợi ý từ các khóa đang mở tại trung tâm</p></div>
+        <div className="advisor-mark"><ChatCircleText aria-hidden="true" /></div>
+        <div><h2 id="advisor-title">Tư vấn khóa học</h2><p>Gợi ý tự động từ các khóa đang mở</p></div>
         <button type="button" onClick={() => dialog.current?.close()} aria-label="Đóng tư vấn"><X weight="bold" /></button>
       </header>
 
