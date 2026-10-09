@@ -138,6 +138,7 @@ assert.deepEqual([hero.width, hero.height], imageDimensions(image), 'declared in
 assert.match(css, /\.home-page \.advisor-trigger\s*\{[^}]*position:\s*fixed;[^}]*right:\s*24px;[^}]*bottom:\s*24px;/s, 'course advisor stays pinned to the bottom-right corner')
 assert.doesNotMatch(advisorSource, /length\s*<\s*5|minLength=\{5\}/, 'course advisor accepts short non-empty questions')
 assert.match(advisorSource, /disabled=\{!question\.trim\(\) \|\| loading\}/, 'send is disabled only for blank or pending questions')
+assert.match(advisorSource, /message\.role === 'assistant' \? message\.content\.replaceAll\('\*\*', ''\) : message\.content/, 'course advisor hides Markdown bold markers from AI replies')
 const blocks = [100, 900, 1500].map((top) => ({
   classList: { values: new Set(), add(value) { this.values.add(value) }, remove(value) { this.values.delete(value) } },
   getBoundingClientRect: () => ({ top }),

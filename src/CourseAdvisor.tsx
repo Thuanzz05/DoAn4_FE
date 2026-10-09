@@ -65,7 +65,7 @@ function CourseAdvisor() {
       <div className="advisor-messages" ref={messageList} aria-live="polite">
         {messages.map((message, index) => <div className={`advisor-message ${message.role}`} key={`${message.role}-${index}`}>
           {message.role === 'assistant' && <ChatCircleText weight="duotone" aria-hidden="true" />}
-          <p>{message.content}</p>
+          <p>{message.role === 'assistant' ? message.content.replaceAll('**', '') : message.content}</p>
         </div>)}
         {messages.length === 1 && <div className="advisor-suggestions" aria-label="Câu hỏi gợi ý">
           {suggestions.map((suggestion) => <button type="button" key={suggestion} onClick={() => setQuestion(suggestion)}>{suggestion}</button>)}
