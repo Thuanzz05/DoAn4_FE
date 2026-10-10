@@ -18,6 +18,7 @@
 * { box-sizing: border-box; }
 html { min-width: 320px; min-height: 100%; scroll-padding-top: 24px; }
 body { min-width: 320px; min-height: 100vh; margin: 0; }
+html:has(.home-page), body:has(.home-page) { min-width: 0; }
 button, input { -webkit-tap-highlight-color: transparent; }
 button, a, input { font: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid rgba(233, 85, 63, 0.55); outline-offset: 4px; }

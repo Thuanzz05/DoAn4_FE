@@ -13,13 +13,24 @@ const nodes = (value) => !value || typeof value !== 'object' ? [] : [...(value.t
 const text = (value) => value == null || typeof value === 'boolean' ? '' : Array.isArray(value) ? value.map(text).join('') : typeof value === 'object' ? text(value.props?.children) : String(value)
 const antd = { ConfigProvider: 'ConfigProvider', Tabs: 'Tabs', Collapse: 'Collapse' }
 const pageRef = { current: null }
-let scrollEffect
-let motionListener
+const state = []
+let stateIndex = 0
+let effects = []
+let committedEffects = []
 let observer
+const motionListeners = new Set()
+const visibilityListeners = new Set()
+const timers = new Map()
+let timerId = 0
 const motion = {
   matches: false,
-  addEventListener: (_, listener) => { motionListener = listener },
-  removeEventListener: (_, listener) => { if (motionListener === listener) motionListener = null },
+  addEventListener: (_, listener) => motionListeners.add(listener),
+  removeEventListener: (_, listener) => motionListeners.delete(listener),
+}
+const document = {
+  hidden: false,
+  addEventListener: (_, listener) => visibilityListeners.add(listener),
+  removeEventListener: (_, listener) => visibilityListeners.delete(listener),
 }
 class MockObserver {
   constructor(callback) { this.callback = callback; this.targets = new Set(); observer = this }
@@ -27,11 +38,23 @@ class MockObserver {
   unobserve(target) { this.targets.delete(target) }
   disconnect() { this.targets.clear() }
 }
-const browser = { innerHeight: 800, matchMedia: () => motion, IntersectionObserver: MockObserver }
+const browser = {
+  innerHeight: 800, matchMedia: () => motion, IntersectionObserver: MockObserver,
+  setInterval: (callback, delay) => { const id = ++timerId; timers.set(id, { callback, delay }); return id },
+  clearInterval: (id) => timers.delete(id),
+}
 const exports = {}
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } }).outputText
-vm.runInNewContext(compiled, { exports, window: browser, IntersectionObserver: MockObserver, require: (name) => {
-  if (name === 'react') return { useRef: () => pageRef, useEffect: (effect) => { scrollEffect = effect } }
+vm.runInNewContext(compiled, { exports, window: browser, document, IntersectionObserver: MockObserver, require: (name) => {
+  if (name === 'react') return {
+    useRef: () => pageRef,
+    useState: (initial) => {
+      const index = stateIndex++
+      if (index === state.length) state.push(typeof initial === 'function' ? initial() : initial)
+      return [state[index], (value) => { state[index] = typeof value === 'function' ? value(state[index]) : value }]
+    },
+    useEffect: (effect, deps) => effects.push({ effect, deps }),
+  }
   if (name === 'react/jsx-runtime') return { jsx, jsxs: jsx, Fragment: 'Fragment' }
   if (name === 'antd') return antd
   if (name === '@phosphor-icons/react') return new Proxy({}, { get: (_, key) => key })
@@ -40,7 +63,24 @@ vm.runInNewContext(compiled, { exports, window: browser, IntersectionObserver: M
   throw new Error(`Unexpected homepage import: ${name}`)
 } })
 const calls = { login: 0, register: 0, verify: 0 }
-const tree = exports.default({ onLogin: () => calls.login++, onRegister: () => calls.register++, onVerifyCertificate: () => calls.verify++ })
+const render = () => {
+  stateIndex = 0
+  effects = []
+  return exports.default({ onLogin: () => calls.login++, onRegister: () => calls.register++, onVerifyCertificate: () => calls.verify++ })
+}
+const commit = () => {
+  const rendered = render()
+  effects.forEach((next, index) => {
+    const previous = committedEffects[index]
+    if (previous && next.deps?.every((value, dep) => Object.is(value, previous.deps?.[dep]))) next.cleanup = previous.cleanup
+    else { previous?.cleanup?.(); next.cleanup = next.effect() }
+  })
+  committedEffects = effects
+  return rendered
+}
+const unmount = () => { committedEffects.forEach(({ cleanup }) => cleanup?.()); committedEffects = [] }
+const tree = render()
+const scrollEffect = effects[0].effect
 const all = nodes(tree)
 const anchors = all.filter((node) => node.type === 'a').map((node) => node.props)
 assert.ok(all.some((node) => node.props.className?.split(/\s+/).includes('home-page')), 'homepage has its own CSS scope')
@@ -107,6 +147,7 @@ for (const title of ['Học viên và ghi danh', 'Lớp học và lịch học',
   assert.equal(featureHeadings.filter((heading) => heading === title).length, 1, `Accordion explains ${title} exactly once`)
 }
 assert.doesNotMatch(all.map(text).join('') + [...tabs[0].props.items, ...accordionItems].map((item) => text(item.label)).join(''), /—/, 'visible homepage copy has no em dash')
+assert.doesNotMatch(text(tree), /Đồ án xây dựng hệ thống|Hình ảnh trên trang là ảnh minh họa được tạo/, 'removed homepage disclaimers stay removed')
 const hero = all.find((node) => node.type === 'img' && node.props.loading === 'eager')?.props
 assert.ok(hero, 'above-the-fold hero is not lazy-loaded')
 assert.equal(hero.fetchPriority, 'high')
@@ -156,17 +197,181 @@ assert.equal(observer.targets.has(blocks[1]), false, 'revealed content does not 
 cleanupScroll()
 assert.equal(observer.targets.size, 0, 'unmount disconnects observation')
 assert.ok(blocks.every((block) => !pending(block)), 'cleanup leaves no hidden content')
-assert.equal(motionListener, null, 'unmount removes the preference listener')
+assert.equal(motionListeners.size, 0, 'unmount removes the preference listener')
 const cleanupRemount = scrollEffect()
 assert.equal(observer.targets.size, 2, 'StrictMode remount observes offscreen content again')
 motion.matches = true
-motionListener()
+motionListeners.forEach((listener) => listener())
 assert.ok(blocks.every((block) => !pending(block)), 'switching to reduced motion reveals all content')
 cleanupRemount()
 assert.equal(scrollEffect(), undefined, 'reduced motion skips animation setup')
 motion.matches = false
 delete browser.IntersectionObserver
 assert.equal(scrollEffect(), undefined, 'unsupported browsers keep content visible')
+browser.IntersectionObserver = MockObserver
+
+let hovered = false
+const heroBounds = { top: 0, bottom: 900 }
+const heroElement = { getBoundingClientRect: () => heroBounds }
+pageRef.current = {
+  querySelectorAll: () => blocks,
+  querySelector: (selector) => selector === '.home-hero' ? heroElement : hovered ? heroElement : null,
+}
+const slideFigures = (rendered) => nodes(rendered).filter((node) => node.props.className?.split(/\s+/).includes('home-photo-slide'))
+const activeIndex = (rendered) => slideFigures(rendered).findIndex((node) => node.props.className.split(/\s+/).includes('is-active'))
+const control = (rendered, label) => nodes(rendered).find((node) => node.type === 'button' && node.props['aria-label'] === label)?.props
+const loadImage = (index) => { nodes(slideFigures(render())[index]).find((node) => node.type === 'img').props.onLoad(); return commit() }
+const clickControl = (label) => { const button = control(render(), label); assert.ok(button, `Missing slideshow control ${label}`); button.onClick(); return commit() }
+const tick = () => {
+  assert.equal(timers.size, 1, 'autoplay owns one interval')
+  const timer = [...timers.values()][0]
+  assert.equal(timer.delay, 3000, 'autoplay changes every three seconds')
+  timer.callback()
+  return commit()
+}
+const changeMotion = (matches) => { motion.matches = matches; [...motionListeners].forEach((listener) => listener()); return commit() }
+const changeVisibility = (hidden) => { document.hidden = hidden; [...visibilityListeners].forEach((listener) => listener()); return commit() }
+const focusHero = (toggle = false) => {
+  nodes(render()).find((node) => node.props.id === 'tong-quan').props.onFocusCapture({ target: { closest: () => toggle ? {} : null } })
+  return commit()
+}
+let rendered = commit()
+assert.equal(slideFigures(rendered).length, 3, 'hero cycles through three real photographs')
+assert.equal(new Set(slideFigures(rendered).map((figure) => nodes(figure).find((node) => node.type === 'img').props.src)).size, 3, 'hero photographs use three distinct image assets')
+assert.equal(activeIndex(rendered), 0, 'first photograph is shown immediately')
+assert.equal(timers.size, 1, 'autoplay begins on a visible page without reduced motion')
+assert.equal(control(rendered, 'Ảnh trước').disabled, true, 'previous waits for the target image')
+assert.equal(control(rendered, 'Ảnh tiếp theo').disabled, true, 'next waits for the target image')
+assert.equal(activeIndex(tick()), 0, 'autoplay cannot show an unloaded photograph')
+rendered = loadImage(0)
+assert.equal(activeIndex(tick()), 0, 'loading the current photograph does not mark the next ready')
+assert.equal(activeIndex(clickControl('Ảnh tiếp theo')), 0, 'the next handler also rejects an unloaded target')
+rendered = loadImage(1)
+assert.equal(control(rendered, 'Ảnh trước').disabled, true, 'loading the second photograph does not mark the third ready')
+assert.equal(control(rendered, 'Ảnh tiếp theo').disabled, false, 'loaded targets enable next')
+assert.equal(activeIndex(clickControl('Ảnh trước')), 0, 'the previous handler rejects an unloaded third photograph')
+for (const figure of slideFigures(rendered)) {
+  const photograph = nodes(figure).find((node) => node.type === 'img').props
+  assert.deepEqual([photograph.width, photograph.height], imageDimensions(readFileSync(new URL(`../src/pages/${photograph.src}`, import.meta.url))), 'each slide reserves its actual image dimensions')
+}
+rendered = tick()
+assert.equal(activeIndex(rendered), 1, 'autoplay advances to the loaded second photograph')
+assert.equal(slideFigures(rendered)[0].props['aria-hidden'], true, 'inactive photograph is hidden from assistive technology')
+assert.equal(slideFigures(rendered)[1].props['aria-hidden'], false, 'active photograph remains available to assistive technology')
+assert.equal(control(rendered, 'Ảnh tiếp theo').disabled, true, 'next waits independently for the third photograph')
+assert.equal(activeIndex(tick()), 1, 'autoplay waits for the unloaded third photograph')
+assert.equal(activeIndex(clickControl('Ảnh tiếp theo')), 1, 'the next handler rejects an unloaded third photograph')
+rendered = loadImage(2)
+assert.equal(control(rendered, 'Ảnh trước').disabled, false, 'loaded targets enable previous')
+assert.equal(control(rendered, 'Ảnh tiếp theo').disabled, false, 'loading the third photograph enables next')
+rendered = tick()
+assert.equal(activeIndex(rendered), 2, 'autoplay advances to the loaded third photograph')
+assert.equal(slideFigures(rendered)[1].props['aria-hidden'], true, 'second photograph becomes hidden when the third is active')
+assert.equal(slideFigures(rendered)[2].props['aria-hidden'], false, 'third photograph remains available to assistive technology')
+assert.equal(activeIndex(tick()), 0, 'autoplay wraps to the first photograph')
+hovered = true
+assert.equal(activeIndex(tick()), 0, 'hovering the header, actions or slideshow controls pauses automatic switching')
+hovered = false
+heroBounds.bottom = 0
+assert.equal(activeIndex(tick()), 0, 'autoplay does not switch a hero above the viewport')
+heroBounds.top = browser.innerHeight
+heroBounds.bottom = 1700
+assert.equal(activeIndex(tick()), 0, 'autoplay does not switch a hero below the viewport')
+heroBounds.top = 0
+heroBounds.bottom = 900
+assert.equal(activeIndex(tick()), 1, 'visible hero resumes after hover and offscreen checks clear')
+rendered = changeVisibility(true)
+assert.equal(timers.size, 0, 'a hidden tab stops its interval')
+assert.equal(activeIndex(rendered), 1, 'hiding the tab does not change the photograph')
+changeVisibility(false)
+assert.equal(timers.size, 1, 'visible tab resumes a single interval')
+rendered = clickControl('Tạm dừng chuyển ảnh')
+assert.equal(timers.size, 0, 'manual pause clears autoplay')
+changeVisibility(true)
+changeVisibility(false)
+assert.equal(timers.size, 0, 'visibility changes preserve manual pause')
+rendered = clickControl('Phát tự động chuyển ảnh')
+assert.equal(timers.size, 1, 'manual play resumes autoplay')
+focusHero(true)
+assert.equal(timers.size, 1, 'focusing the play/pause button does not immediately cancel play')
+focusHero()
+assert.equal(timers.size, 0, 'focus on hero links stops autoplay')
+clickControl('Phát tự động chuyển ảnh')
+nodes(render()).find((node) => node.type === 'header').props.onFocusCapture()
+commit()
+assert.equal(timers.size, 0, 'focus in the overlaid header stops autoplay')
+rendered = clickControl('Ảnh tiếp theo')
+assert.equal(activeIndex(rendered), 2, 'next advances from the second to the third photograph')
+rendered = clickControl('Ảnh tiếp theo')
+assert.equal(activeIndex(rendered), 0, 'next wraps from the last photograph')
+assert.equal(timers.size, 0, 'manual navigation stays paused')
+rendered = clickControl('Ảnh trước')
+assert.equal(activeIndex(rendered), 2, 'previous wraps from the first photograph')
+clickControl('Phát tự động chuyển ảnh')
+changeMotion(true)
+assert.equal(timers.size, 0, 'switching to reduced motion stops autoplay')
+assert.ok(control(render(), 'Phát tự động chuyển ảnh'), 'motion change updates the paused control')
+changeMotion(false)
+assert.equal(timers.size, 0, 'leaving reduced motion does not automatically undo pause')
+clickControl('Phát tự động chuyển ảnh')
+assert.equal(timers.size, 1)
+unmount()
+assert.equal(timers.size, 0, 'unmount clears the slideshow interval')
+assert.equal(motionListeners.size, 0, 'unmount clears all motion listeners')
+assert.equal(visibilityListeners.size, 0, 'unmount clears visibility listeners')
+commit()
+assert.equal(timers.size, 1, 'StrictMode remount recreates a single slideshow interval')
+unmount()
+assert.equal(timers.size, 0, 'StrictMode cleanup clears the recreated interval')
+assert.equal(motionListeners.size, 0)
+assert.equal(visibilityListeners.size, 0)
+state.length = 0
+motion.matches = true
+rendered = commit()
+assert.equal(activeIndex(rendered), 0, 'reduced motion starts on the first photograph')
+assert.equal(timers.size, 0, 'initial reduced-motion preference never starts autoplay')
+assert.ok(control(rendered, 'Phát tự động chuyển ảnh'), 'initial reduced motion renders the paused control')
+loadImage(0)
+loadImage(1)
+loadImage(2)
+assert.equal(activeIndex(clickControl('Ảnh tiếp theo')), 1, 'reduced motion still allows an explicit photograph change')
+assert.equal(activeIndex(clickControl('Ảnh tiếp theo')), 2, 'reduced motion still allows the third photograph')
+assert.equal(activeIndex(clickControl('Ảnh tiếp theo')), 0, 'reduced motion preserves next wrapping')
+assert.equal(activeIndex(clickControl('Ảnh trước')), 2, 'reduced motion preserves previous wrapping')
+assert.equal(timers.size, 0, 'manual changes under reduced motion keep autoplay stopped')
+unmount()
+assert.equal(motionListeners.size, 0)
+assert.equal(visibilityListeners.size, 0)
+state.length = 0
+state.push(1, false, [true, true])
+rendered = commit()
+assert.equal(control(rendered, 'Ảnh tiếp theo').disabled, true, 'retained two-image readiness waits for the third photograph')
+assert.equal(activeIndex(clickControl('Ảnh tiếp theo')), 1, 'retained readiness cannot advance before the third photograph loads')
+rendered = loadImage(2)
+assert.deepEqual(Array.from(state[2]), [true, true, true], 'third onLoad expands retained two-image readiness')
+assert.equal(control(rendered, 'Ảnh tiếp theo').disabled, false, 'third onLoad enables next after a two-to-three photograph refresh')
+assert.equal(activeIndex(clickControl('Ảnh tiếp theo')), 2, 'next reaches the third photograph after retained readiness is repaired')
+unmount()
+state.length = 0
+state.push(1, false, [true, true])
+rendered = commit()
+const cachedThirdImage = nodes(slideFigures(rendered)[2]).find((node) => node.type === 'img').props
+assert.equal(typeof cachedThirdImage.ref, 'function', 'photographs inspect cached completion when their refs attach')
+const retainedReadyImages = state[2]
+for (const image of [null, { complete: false, naturalWidth: 1920 }, { complete: true, naturalWidth: 0 }]) {
+  cachedThirdImage.ref(image)
+  assert.equal(state[2], retainedReadyImages, 'detached, incomplete and failed cached images do not change readiness')
+  assert.equal(control(render(), 'Ảnh tiếp theo').disabled, true, 'next stays disabled until a cached third photograph is usable')
+}
+cachedThirdImage.ref({ complete: true, naturalWidth: 1920 })
+rendered = commit()
+assert.deepEqual(Array.from(state[2]), [true, true, true], 'a cached completed third photograph repairs retained readiness without onLoad')
+assert.equal(control(rendered, 'Ảnh tiếp theo').disabled, false, 'a cached completed third photograph enables next without onLoad')
+const completedReadyImages = state[2]
+nodes(slideFigures(rendered)[2]).find((node) => node.type === 'img').props.ref({ complete: true, naturalWidth: 1920 })
+assert.equal(state[2], completedReadyImages, 'repeated completed-image refs preserve state identity to avoid a render loop')
+assert.equal(activeIndex(clickControl('Ảnh tiếp theo')), 2, 'next reaches the cached third photograph without waiting for onLoad')
+unmount()
 assert.doesNotMatch(source, /TODO|FIXME|tự code tiếp/i, 'no unfinished placeholder implementation')
 const config = await new ESLint().calculateConfigForFile('src/pages/HomePage.tsx')
 assert.equal(config.rules['no-warning-comments'][0], 2, 'unfinished comments fail lint')
@@ -174,4 +379,4 @@ for (const term of ['todo', 'fixme']) assert.ok(config.rules['no-warning-comment
 const selectors = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{/g)].map((match) => match[1].trim()).filter((selector) => !selector.startsWith('@'))
 assert.ok(selectors.length, 'homepage stylesheet is not empty')
 for (const selector of selectors) for (const part of selector.split(',')) assert.match(part.trim(), /^\.home-page(?=[\s.#:\[>+~]|$)/, `unscoped homepage CSS selector: ${part.trim()}`)
-console.log('PASS: homepage navigation and content, scroll reveal lifecycle and fallbacks, eager hero dimensions, scoped CSS and no unfinished placeholders')
+console.log('PASS: homepage navigation and content, slideshow readiness/autoplay/pause/motion/visibility/cleanup, scroll reveal lifecycle, image dimensions and scoped CSS')
