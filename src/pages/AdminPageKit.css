@@ -20,6 +20,11 @@
 .admin-table-card .ant-table { font-size: 0.66rem; }
 .admin-table-card .ant-table-thead > tr > th { color: #60726c; font-size: 0.56rem; letter-spacing: 0.045em; text-transform: uppercase; }
 .admin-table-card .ant-table-cell { vertical-align: middle; }
+.admin-students-table .ant-table-container { margin-inline-end: clamp(0px, calc(100% - 840px), 20px); }
+.admin-students-table .ant-table-cell { overflow-wrap: anywhere; }
+.admin-students-table .admin-entity { gap: 8px; }
+.admin-students-table .ant-avatar { flex-shrink: 0; }
+.admin-students-table .ant-tag { margin-inline-end: 0; white-space: normal; }
 .admin-drawer-title { margin: 0 !important; font-family: var(--display); font-weight: 600 !important; }
 .admin-drawer-subtitle { display: block; margin-top: 4px; font-size: 0.62rem; }
 .admin-drawer-status { margin-top: 20px; }
